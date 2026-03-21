@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgriSignal — Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="site-header">
+    <div class="logo">
+      <span class="logo-icon">🌾</span>
+      <span>AgriSignal <span class="logo-tag">beta</span></span>
+    </div>
+    <div class="header-right">
+      <span class="user-badge" id="userEmail">—</span>
+      <button id="logoutBtn" class="btn btn-danger">Sign out</button>
+    </div>
+  </header>
+
+  <div class="page-wrap">
+
+    <!-- ── 1. PRICE INTELLIGENCE CHART ─────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Fertilizer Price Forecast</div>
+          <div class="card-subtitle">
+            Urea spot price ($/mt) — historical &amp; 90-day Monte Carlo forecast
+          </div>
+        </div>
+        <div class="chart-controls">
+          <label class="toggle-wrap">
+            <span class="toggle-switch">
+              <input type="checkbox" id="toggleNatGas" />
+              <span class="toggle-slider"></span>
+            </span>
+            Show Natural Gas overlay
+          </label>
+        </div>
+      </div>
+
+      <!-- Chart canvas -->
+      <div id="chartWrapper">
+        <canvas id="priceChart"></canvas>
+        <div id="chartSpinner">
+          <div class="spinner"></div>
+          Loading price data…
+        </div>
+      </div>
+      <p id="chartError" class="error-text"></p>
+
+      <!-- Legend callout -->
+      <div style="margin-top:12px; display:flex; gap:20px; flex-wrap:wrap;">
+        <span style="font-size:0.78rem; color:#94a3b8;">
+          <span style="color:#22c55e;">━</span> Historical urea price
+        </span>
+        <span style="font-size:0.78rem; color:#94a3b8;">
+          <span style="color:#f59e0b;">╌</span> Forecast mean
+        </span>
+        <span style="font-size:0.78rem; color:#94a3b8;">
+          <span style="color:rgba(245,158,11,0.5);">▓</span> 80% confidence band
+        </span>
+        <span style="font-size:0.78rem; color:#94a3b8;">
+          <span style="color:#60a5fa;">━</span> Nat gas (if overlay on)
+        </span>
+      </div>
+    </div>
+
+    <!-- ── 2. BUY TIMING SIGNAL ─────────────────────────────────────────── -->
+    <div class="card" id="signalCard">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Best Time to Buy Signal</div>
+          <div class="card-subtitle">
+            Based on nat gas trends, seasonality, and your farm's fertilizer needs
+          </div>
+        </div>
+        <button id="buySignalBtn" class="btn btn-amber">
+          ⚡ Get Signal
+        </button>
+      </div>
+
+      <div id="signalContent">
+        <p class="signal-placeholder">
+          Click <strong>Get Signal</strong> to see the buy timing recommendation,
+          or submit your farm data below for a personalized estimate.
+        </p>
+      </div>
+    </div>
+
+    <!-- ── 3. FARM INPUT FORM ───────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Your Farm Profile</div>
+          <div class="card-subtitle">
+            Enter your fertilizer use or crop plan — we'll calculate your cost exposure.
+            Saved once per email.
+          </div>
+        </div>
+        <span id="profileNote"></span>
+      </div>
+
+      <form id="exposureForm" novalidate>
+
+        <!-- Mode toggle -->
+        <p class="section-label">How would you like to enter your data?</p>
+        <div class="mode-toggle">
+          <label class="mode-btn">
+            <input type="radio" name="inputMode" id="modeCropsBtn" value="crops" checked />
+            🌽 Crop types &amp; acreage
+          </label>
+          <label class="mode-btn">
+            <input type="radio" name="inputMode" id="modeDirectBtn" value="direct" />
+            🧪 Direct fertilizer amount
+          </label>
+        </div>
+
+        <!-- ── MODE A: Crops + Acreage ──────────────────────────────────── -->
+        <div id="cropsSection">
+          <p class="section-label">Crops planned for next season</p>
+          <div id="cropRows">
+            <!-- crop rows injected by JS -->
+          </div>
+          <div class="add-crop-row">
+            <button type="button" id="addCropBtn" class="btn btn-outline" style="font-size:0.85rem; padding:7px 14px;">
+              + Add Crop
+            </button>
+            <span class="field-hint">Fertilizer intensity is calculated per crop type</span>
+          </div>
+        </div>
+
+        <!-- ── MODE B: Direct Fertilizer Amount ───────────────────────────── -->
+        <div id="directSection" style="display:none;">
+          <div class="field-group">
+            <label class="field-label" for="fertLbs">
+              Expected fertilizer use next season (lbs of Nitrogen)
+            </label>
+            <input
+              type="number"
+              id="fertLbs"
+              class="input-field"
+              placeholder="e.g. 75000"
+              min="1"
+              style="max-width:280px;"
+            />
+            <p class="field-hint">
+              Enter total pounds of nitrogen (N) you plan to apply. Urea is ~46% N.
+            </p>
+          </div>
+        </div>
+
+        <p id="calcError" class="error-text"></p>
+
+        <div class="form-actions">
+          <button type="submit" id="calcBtn" class="btn btn-primary">
+            Calculate My Costs
+          </button>
+          <button type="button" id="saveBtn" class="btn btn-outline">
+            Save Profile
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ── 4. RESULTS ──────────────────────────────────────────────────── -->
+    <div class="card" id="resultsSection">
+      <div class="card-header">
+        <div class="card-title">Your Cost Exposure Estimate</div>
+      </div>
+
+      <!-- Summary stats -->
+      <div class="results-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="tonsNeeded">—</div>
+          <div class="stat-label">Metric Tons Urea Needed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="totalLbsN">—</div>
+          <div class="stat-label">Total Nitrogen Required</div>
+        </div>
+      </div>
+
+      <!-- Cost by forecast month -->
+      <p class="section-label">Estimated total fertilizer cost by purchase month</p>
+      <table class="cost-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Estimated Cost</th>
+            <th>80% Range</th>
+          </tr>
+        </thead>
+        <tbody id="costTableBody">
+          <!-- rows injected by JS -->
+        </tbody>
+      </table>
+
+      <!-- Crop breakdown -->
+      <div id="cropBreakdown">
+        <div class="divider"></div>
+        <h4>Crop breakdown</h4>
+        <ul id="breakdownList"></ul>
+      </div>
+    </div>
+
+  </div><!-- /page-wrap -->
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <!-- Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>initDashboard();</script>
+
+</body>
+</html>
