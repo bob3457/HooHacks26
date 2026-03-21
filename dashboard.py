@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 import joblib
 import plotly.express as px
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # --- 1. CONFIGURATION & MODEL LOADING ---
 st.set_page_config(page_title="AgriSignal Pro", page_icon="🌾", layout="wide")
 
-# @st.cache_resource ensures the model only loads once into memory, keeping the app lightning fast
 @st.cache_resource
 def load_ml_model():
     try:
@@ -21,7 +23,7 @@ model = load_ml_model()
 st.markdown("""
     <style>
     .big-font { font-size:24px !important; font-weight: bold; color: #E85D04;}
-    .alert-box { padding: 20px; background-color: #ffcccc; border-radius: 10px; color: #cc0000; font-weight:bold;}
+    .alert-box { padding: 20px; background-color: #ffcccc; border-radius: 10px; color: #cc0000; font-weight:bold; margin-bottom: 10px;}
     .success-box { padding: 20px; background-color: #ccffcc; border-radius: 10px; color: #006600; font-weight:bold;}
     </style>
 """, unsafe_allow_html=True)
@@ -30,7 +32,58 @@ st.title("🌾 AgriSignal Pro: Risk Mitigation Engine")
 st.markdown("Automated Farm Loan Portfolio Monitoring & Proactive Hedging")
 st.divider()
 
-# --- 3. SYNTHETIC DATA VISUALIZATION ---
+# --- 3. EMAIL ALERT FUNCTION (UPDATED) ---
+def send_risk_alert(recipient_email, borrower_data, probability, action):
+    # ⚠️ HACKATHON CONFIG: Put your burner email and App Password here
+    SENDER_EMAIL = "your_burner_email@gmail.com" 
+    APP_PASSWORD = "your_16_character_app_password" 
+
+    msg = MIMEMultipart()
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = recipient_email
+    msg['Subject'] = "🚨 AgriSignal Alert: High Risk Farm Detected"
+
+    body = f"""
+    AgriSignal Risk Mitigation Engine has flagged a portfolio account.
+    
+    Borrower Metrics:
+    - Crop Focus: {borrower_data['Crop_Type']}
+    - Farm Size: {borrower_data['Farm_Area_Acres']} Acres
+    - Irrigation Type: {borrower_data['Irrigation_Type']}
+    - Soil Type: {borrower_data['Soil_Type']}
+    - Season: {borrower_data['Season']}
+    - Est. Fertilizer Need: {borrower_data['Fertilizer_Used_Tons']} Tons
+    - Current LTV Ratio: {borrower_data['Current_LTV_Ratio']}
+    - Months Since Delinquency: {borrower_data['Months_Since_Delinquency']}
+    
+    Risk Assessment:
+    - Stress Probability: {probability * 100:.1f}%
+    
+    Automated Recommendation: {action}
+    
+    Log into the AgriSignal portal to review this account immediately.
+    """
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login(SENDER_EMAIL, APP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
+
+# --- 4. SIDEBAR LOGIN PORTAL ---
+with st.sidebar:
+    st.subheader("🏦 Loan Officer Portal")
+    st.markdown("Log in to receive automated portfolio alerts.")
+    officer_email = st.text_input("Officer Email Address", placeholder="loan.officer@bank.com")
+    if officer_email:
+        st.success(f"Logged in as: {officer_email}")
+
+# --- 5. SYNTHETIC DATA VISUALIZATION ---
 @st.cache_data
 def load_portfolio_data():
     try:
@@ -65,7 +118,7 @@ if not df.empty:
 
 st.divider()
 
-# --- 4. THE ML PREDICTION ENGINE ---
+# --- 6. THE ML PREDICTION ENGINE ---
 st.subheader("🔍 Run Individual Farm Risk Assessment")
 
 with st.form("risk_form"):
@@ -85,15 +138,15 @@ with st.form("risk_form"):
         
     submit_button = st.form_submit_button(label="Run Prediction Engine")
 
-# --- 5. EXECUTE THE JOBLIB MODEL ---
+# --- 7. EXECUTE THE JOBLIB MODEL & SEND ALERTS ---
 if submit_button:
     if model is None:
         st.error("Cannot run prediction: Model failed to load.")
     else:
         st.write("Analyzing macroeconomic data and borrower profile...")
         
-        # 1. Format the UI inputs into a Pandas DataFrame exactly like the training data
-        input_df = pd.DataFrame([{
+        # Pack everything into a dictionary first
+        borrower_data = {
             'Crop_Type': crop_type,
             'Farm_Area_Acres': farm_acres,
             'Irrigation_Type': irrigation,
@@ -102,14 +155,15 @@ if submit_button:
             'Fertilizer_Used_Tons': fert_tons,
             'Current_LTV_Ratio': ltv,
             'Months_Since_Delinquency': delinquency
-        }])
+        }
         
-        # 2. Feed it directly to the model!
-        # [:, 1] gets the probability of the "1" class (Requires Intervention)
+        # Convert dictionary to DataFrame for the ML model
+        input_df = pd.DataFrame([borrower_data])
+        
         stress_probability = model.predict_proba(input_df)[0][1]
         is_high_risk = stress_probability > 0.65
+        recommended_action = "Offer 60-day interest-only period."
         
-        # 3. Display Results
         res_col1, res_col2 = st.columns(2)
         
         with res_col1:
@@ -117,7 +171,21 @@ if submit_button:
         
         with res_col2:
             if is_high_risk:
-                st.markdown('<div class="alert-box">🚨 HIGH RISK DETECTED<br>Action Required: Offer 60-day interest-only period.</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="alert-box">🚨 HIGH RISK DETECTED<br>Action Required: {recommended_action}</div>', unsafe_allow_html=True)
+                
+                # Check if the loan officer logged in on the sidebar
+                if officer_email:
+                    with st.spinner("Dispatching alert to Loan Officer..."):
+                        # Pass the whole borrower_data dictionary into the email function
+                        success = send_risk_alert(officer_email, borrower_data, stress_probability, recommended_action)
+                    
+                    if success:
+                        st.toast(f"📧 Alert successfully sent to {officer_email}!", icon="✅")
+                    else:
+                        st.error("Failed to send email. Check terminal for errors.")
+                else:
+                    st.warning("⚠️ Enter an email in the sidebar to receive automated email alerts.")
+                    
                 if st.button("Dispatch Intervention Offer (SMS)"):
                     st.toast("✅ SMS Offer sent to Borrower!", icon="📱")
             else:
