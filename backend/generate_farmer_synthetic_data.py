@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import random
+import os
 
 # Seed for reproducibility
 np.random.seed(42)
@@ -62,5 +63,6 @@ df['Stress_Probability'] = np.clip(base_risk + np.random.normal(0, 0.1, num_rows
 df['Requires_Intervention'] = (df['Stress_Probability'] > 0.65).astype(int)
 
 # 6. Save the output
-df.to_csv('synthetic_farm_borrowers.csv', index=False)
+out_path = os.path.join(os.path.dirname(__file__), "../data/agriculture-and-farming-dataset/synthetic_farm_borrowers.csv")
+df.to_csv(out_path, index=False)
 print("Data generated successfully!")
