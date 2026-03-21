@@ -7,7 +7,7 @@ import os
 from typing import Optional
 import logging
 
-from email import subscribers, sender
+from email_service import subscribers, sender
 
 router = APIRouter(prefix="/email", tags=["email"])
 logger = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ def send_test_digest(email: EmailStr = Query(...)):
 def trigger_send_all():
     """Manually trigger send to all subscribers (for testing)."""
     try:
-        from email.scheduler import trigger_manual_send
+        from email_service.scheduler import trigger_manual_send
         trigger_manual_send()
         return {"status": "triggered", "message": "Check logs for results"}
     except Exception as e:
