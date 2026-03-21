@@ -1,2 +1,3 @@
 .env
 *.joblib
+agrisignal.db-wal
