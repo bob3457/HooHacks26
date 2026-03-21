@@ -1,8 +1,9 @@
 import streamlit as st
 import sqlite3
 import re
+import os
 
-DB_PATH = "users.db"
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")
 
 
 def init_db():
@@ -34,7 +35,9 @@ def is_valid_email(email: str) -> bool:
 
 init_db()
 
-st.set_page_config(page_title="AgriSignal", page_icon="🌱", layout="centered")
+st.set_page_config(page_title="AgriSignal", page_icon="🌱", layout="centered", initial_sidebar_state="collapsed")
+
+st.markdown("<style>[data-testid='stSidebarNav'] { display: none; } [data-testid='collapsedControl'] { display: none; }</style>", unsafe_allow_html=True)
 
 st.markdown(
     """
@@ -88,13 +91,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if st.session_state.logged_in:
-    st.success(f"Welcome back, {st.session_state.user_email}!")
-    st.markdown("---")
-    st.write("You are now logged in.")
-    if st.button("Sign out"):
-        st.session_state.logged_in = False
-        st.session_state.user_email = ""
-        st.rerun()
+    st.switch_page("pages/main_app.py")
 else:
     st.markdown(
         '<div class="logo-area"><span style="font-size:3rem;">🌾</span></div>',
@@ -123,7 +120,7 @@ else:
             else:
                 st.session_state.logged_in = True
                 st.session_state.user_email = email.strip().lower()
-                st.rerun()
+                st.switch_page("pages/main_app.py")
 
     with tab_register:
         new_email = st.text_input("Email address", key="reg_email", placeholder="you@example.com")
