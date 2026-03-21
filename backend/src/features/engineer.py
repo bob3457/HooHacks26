@@ -13,7 +13,7 @@ ROOT  = os.path.normpath(os.path.join(_THIS, "..", "..", ".."))
 
 FEATURE_COLS = [
     "ng_spot",
-    "ng_lag1", "ng_lag2", "ng_lag3", "ng_lag4",
+    "ng_lag1", "ng_lag2", "ng_lag3", "ng_lag4", "ng_lag5", "ng_lag6",
     "ng_rolling_mean_3m", "ng_rolling_mean_6m",
     "ng_rolling_std_3m",  "ng_rolling_std_6m",
     "ng_mom_1m", "ng_mom_3m", "ng_mom_6m",
@@ -34,8 +34,8 @@ def build_features(data: dict) -> pd.DataFrame:
     """
     df = pd.DataFrame(data)
 
-    # ── Nat gas lags
-    for lag in [1, 2, 3, 4]:
+    # ── Nat gas lags (1–6: Granger causality confirms significance up to lag 6)
+    for lag in [1, 2, 3, 4, 5, 6]:
         df[f"ng_lag{lag}"] = df["ng_spot"].shift(lag)
 
     # ── Rolling stats
