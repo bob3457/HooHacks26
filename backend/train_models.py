@@ -18,7 +18,7 @@ from src.models.forecaster import train
 print("=== AgriSignal Model Training ===\n")
 
 print("1/3 — Loading data...")
-data = run_ingestion(start="2018-01", end="2024-12")
+data = run_ingestion(start="1997-01", end="2024-12")
 print(f"     NG spot:  {data['ng_spot'].dropna().shape[0]} months")
 print(f"     Urea:     {data['urea'].dropna().shape[0]} months")
 print(f"     DAP:      {data['dap'].dropna().shape[0]} months")
