@@ -93,8 +93,14 @@ module.exports = {
   getProfile(email) {
     const profile = stmts.getProfile.get(email);
     if (!profile) return null;
-    const crops = stmts.getCrops.all(email);
-    return { ...profile, crops };
+    const crops = stmts.getCrops.all(email).map(c => ({ type: c.crop_type, acres: c.acres }));
+    return {
+      email:         profile.email,
+      inputMode:     profile.input_mode,
+      fertilizerLbs: profile.fertilizer_lbs,
+      updatedAt:     profile.updated_at,
+      crops,
+    };
   },
 
   // Persists profile atomically (crops are fully replaced each save).
