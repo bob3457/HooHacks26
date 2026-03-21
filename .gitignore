@@ -1,3 +1,26 @@
+# Secrets
 .env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
 *.joblib
-agrisignal.db-wal
+
+# SQLite database (runtime file — never commit)
+backend/agrisignal.db
+backend/agrisignal.db-shm
+backend/agrisignal.db-wal
+
+# Trained ML models and generated cache (large binary files)
+data/models/
+data/processed/
+
+# Node
+backend/node_modules/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

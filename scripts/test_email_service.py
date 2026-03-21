@@ -12,7 +12,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from email import subscribers, sender
+from email_service import subscribers, sender
 from dotenv import load_dotenv
 import os
 
@@ -137,7 +137,7 @@ def test_scheduler_status():
     """Show scheduler status."""
     print_section("TEST 4: Scheduler Status")
     
-    from email.scheduler import scheduler
+    from email_service.scheduler import scheduler
     
     if scheduler.running:
         print("✓ Scheduler is running")
