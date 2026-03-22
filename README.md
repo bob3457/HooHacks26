@@ -5,7 +5,7 @@ Fertilizer price intelligence for farmers — powered by natural gas market data
 ## Setup
 
 ```powershell
-# 1. Install Python dependencies (use the venv, not system Python)
+# Install Python dependencies (use the venv, not system Python)
 .\.venv\Scripts\pip install -r requirements.txt
 ```
 
@@ -15,8 +15,9 @@ Fertilizer price intelligence for farmers — powered by natural gas market data
 ```powershell
 .\.venv\Scripts\python backend/train_models.py
 ```
+Only needs to be re-run if you change training data or model code.
 
-**Step 2 — Generate forecasts (run any time you want fresh data):**
+**Step 2 — Ingest data & generate forecasts (run any time you want fresh data):**
 ```powershell
 .\.venv\Scripts\python backend/run_pipeline.py
 ```

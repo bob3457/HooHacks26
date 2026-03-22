@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 import json
 import plotly.express as px
@@ -7,6 +8,7 @@ import plotly.graph_objects as go
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from scipy.stats import norm as _norm
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Gas Forecast Pro", page_icon="🌾", layout="wide")
@@ -421,6 +423,143 @@ with tab1:
 
     st.divider()
 
+    # ── SECTION 4b: PRE-PURCHASE OPTIMIZER ────────────────────────────────────
+    meta = cache["model_metadata"]
+    st.subheader("🎯 Pre-Purchase Optimizer")
+    st.markdown(
+        "Computes the statistically **optimal fraction to buy now vs. wait** "
+        "given your planting timeline and risk tolerance — minimising expected cost "
+        "while controlling downside exposure via CVaR."
+    )
+
+    opt_c1, opt_c2 = st.columns(2)
+    with opt_c1:
+        months_to_plant = st.slider(
+            "Months until planting / purchase deadline",
+            min_value=1, max_value=3, value=2, key="months_to_plant",
+        )
+    with opt_c2:
+        risk_label = st.radio(
+            "Risk tolerance",
+            ["Conservative", "Balanced", "Aggressive"],
+            index=1, horizontal=True, key="risk_tol",
+        )
+
+    # Map horizon
+    horizon_key = {1: "t1", 2: "t2", 3: "t3"}[months_to_plant]
+    p50_h = mc[f"p50_{horizon_key}"]
+    std_h = meta[f"residual_std_{horizon_key}"]
+    cur   = sig["currentPrice"]
+
+    # 10 000 MC paths for the chosen horizon
+    rng       = np.random.default_rng(seed=42)
+    mc_paths  = rng.normal(loc=p50_h, scale=std_h, size=10_000).clip(50, 2000)
+
+    # Objective = (1-α)·E[cost] + α·CVaR₉₀[cost]  — convex in f, grid-search is exact
+    alpha_map = {"Conservative": 0.75, "Balanced": 0.45, "Aggressive": 0.15}
+    alpha     = alpha_map[risk_label]
+
+    f_grid    = np.linspace(0, 1, 201)
+    obj_vals  = []
+    for f in f_grid:
+        costs  = remaining_mt * (f * cur + (1 - f) * mc_paths)
+        obj_vals.append((1 - alpha) * costs.mean() + alpha * np.percentile(costs, 90))
+
+    f_star  = float(f_grid[np.argmin(obj_vals)])
+    mt_now  = remaining_mt * f_star
+    mt_wait = remaining_mt * (1 - f_star)
+
+    # Cost breakdown for three strategies
+    def _cost_stats(paths):
+        return paths.mean(), np.percentile(paths, 10), np.percentile(paths, 90)
+
+    c_all_now   = np.full(10_000, remaining_mt * cur)
+    c_all_wait  = remaining_mt * mc_paths
+    c_optimal   = remaining_mt * (f_star * cur + (1 - f_star) * mc_paths)
+
+    exp_now,  p10_now,  p90_now  = _cost_stats(c_all_now)
+    exp_wait, p10_wait, p90_wait = _cost_stats(c_all_wait)
+    exp_opt,  p10_opt,  p90_opt  = _cost_stats(c_optimal)
+
+    # ── Recommendation banner ──────────────────────────────────────────────────
+    pct_now   = round(f_star * 100)
+    pct_wait  = 100 - pct_now
+    save_vs_wait = exp_wait - exp_opt
+    save_sign    = "save" if save_vs_wait >= 0 else "costs"
+
+    rec_color = "#22c55e" if pct_now >= 60 else ("#f59e0b" if pct_now >= 30 else "#60a5fa")
+    st.markdown(
+        f"<div style='border:2px solid {rec_color};border-radius:12px;"
+        f"padding:16px 20px;background:{rec_color}18;margin-bottom:12px;'>"
+        f"<span style='font-size:1.05rem;font-weight:700;color:{rec_color};'>"
+        f"Optimal split: Buy {pct_now}% now · Wait on {pct_wait}%</span><br>"
+        f"<span style='color:#94a3b8;font-size:0.85rem;'>"
+        f"Lock in <b style='color:#f1f5f9;'>{mt_now:.1f} mt</b> at today's "
+        f"<b style='color:#f1f5f9;'>${cur:,.0f}/mt</b> — "
+        f"defer <b style='color:#f1f5f9;'>{mt_wait:.1f} mt</b> until closer to planting.  "
+        f"Expected to <b style='color:#f1f5f9;'>{save_sign} ${abs(save_vs_wait):,.0f}</b> "
+        f"vs. waiting entirely.</span></div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── Three-strategy comparison ──────────────────────────────────────────────
+    oc1, oc2, oc3 = st.columns(3)
+    for col, label, exp, p10, p90, is_opt in [
+        (oc1, "Buy All Now",        exp_now,  p10_now,  p90_now,  False),
+        (oc2, f"Optimal ({pct_now}% now)", exp_opt, p10_opt, p90_opt, True),
+        (oc3, "Wait Entirely",      exp_wait, p10_wait, p90_wait, False),
+    ]:
+        border = "#f59e0b" if is_opt else "#1e293b"
+        bg     = "rgba(245,158,11,0.07)" if is_opt else "rgba(255,255,255,0.02)"
+        badge  = "★ RECOMMENDED" if is_opt else ""
+        bdg_c  = "#f59e0b"
+        with col:
+            st.markdown(
+                f"<div style='border:2px solid {border};border-radius:10px;"
+                f"padding:14px 16px;background:{bg};min-height:175px;'>"
+                f"<div style='font-size:0.9rem;font-weight:700;color:#f1f5f9;'>{label}</div>"
+                + (f"<div style='font-size:0.68rem;font-weight:700;color:{bdg_c};"
+                   f"margin-bottom:6px;'>{badge}</div>" if badge else
+                   "<div style='margin-bottom:20px;'></div>")
+                + f"<div style='font-size:1.45rem;font-weight:800;color:#f1f5f9;'>${exp:,.0f}</div>"
+                f"<div style='font-size:0.73rem;color:#64748b;'>expected total cost</div>"
+                f"<hr style='border:none;border-top:1px solid #1e293b;margin:10px 0;'>"
+                f"<div style='font-size:0.76rem;color:#64748b;'>"
+                f"P10  <span style='color:#22c55e;'>${p10:,.0f}</span> · "
+                f"P90  <span style='color:#ef4444;'>${p90:,.0f}</span></div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+    # ── Objective curve chart ──────────────────────────────────────────────────
+    fig_opt = go.Figure()
+    fig_opt.add_trace(go.Scatter(
+        x=f_grid * 100, y=obj_vals,
+        mode="lines", line=dict(color="#60a5fa", width=2),
+        name="Objective",
+    ))
+    fig_opt.add_vline(
+        x=f_star * 100, line_color="#f59e0b", line_width=2, line_dash="dash",
+        annotation_text=f" Optimal: {pct_now}%",
+        annotation_font_color="#f59e0b",
+    )
+    fig_opt.update_layout(
+        xaxis_title="Fraction purchased now (%)",
+        yaxis_title=f"({1-alpha:.0%}) · E[cost]  +  ({alpha:.0%}) · CVaR₉₀",
+        plot_bgcolor="#0b1120", paper_bgcolor="#0b1120",
+        font=dict(color="#e2e8f0"), height=260,
+        margin=dict(t=20, b=40, l=60, r=20),
+        showlegend=False,
+    )
+    st.plotly_chart(fig_opt, use_container_width=True)
+    st.caption(
+        f"Objective minimised at **{pct_now}%** · "
+        f"Risk tolerance: {risk_label} (α = {alpha}) · "
+        f"Horizon: {months_to_plant}-month MC forecast (residual σ = ${std_h:.0f}/mt)"
+    )
+
+    st.divider()
+
     # ── SECTION 5: SCENARIO COMPARISON ────────────────────────────────────────
     st.subheader("⚖️ Timing Decision: Buy Now vs. Wait")
     st.markdown(
@@ -428,10 +567,7 @@ with tab1:
         f"above. Costs shown for your **remaining {remaining_mt:.1f} mt** to purchase."
     )
 
-    from scipy.stats import norm as _norm
-
-    current_price = sig["currentPrice"]
-    meta          = cache["model_metadata"]
+    current_price = cur   # already set in optimizer section above
     cost_now      = remaining_mt * current_price
 
     def _prob_rising(p50, std):
@@ -481,7 +617,7 @@ with tab1:
         cost_str        = f"${c_p50:,.0f}"
         cost_range_str  = f"${c_p10:,.0f} – ${c_p90:,.0f}"
         delta_str       = "No price risk — cost locked in" if is_baseline else f"vs Buy Now:  {delta:+,.0f}  ({delta_pct:+.1f}%)"
-        prob_str        = "" if is_baseline else f"Prob cheaper than now:  {prob_save_pct:.0f}%"
+        prob_str        = "&nbsp;" if is_baseline else f"Prob cheaper than now:  {prob_save_pct:.0f}%"
 
         # Card colours
         if is_baseline:
@@ -508,7 +644,8 @@ with tab1:
         with col:
             st.markdown(
                 f"<div style='border:2px solid {border};border-radius:12px;"
-                f"padding:18px 16px;background:{bg};'>"
+                f"padding:18px 16px;background:{bg};min-height:300px;"
+                f"display:flex;flex-direction:column;'>"
                 f"<div style='font-size:1.0rem;font-weight:700;color:#f1f5f9;'>{s['label']}</div>"
                 f"<div style='font-size:0.75rem;color:#64748b;margin-bottom:6px;'>{s['sublabel']}</div>"
                 f"<span style='background:{b_col}22;color:{b_col};font-size:0.68rem;"
