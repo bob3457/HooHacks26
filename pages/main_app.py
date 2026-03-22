@@ -58,7 +58,9 @@ _STATE_AG = {
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.switch_page("pages/login.py")
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "users.db")
+# Keep token in URL so F5 refresh restores the session
+if "s" not in st.query_params and st.session_state.get("_session_token"):
+    st.query_params["s"] = st.session_state["_session_token"]
 
 # Add this new line:
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "processed", "cache.json")
@@ -347,6 +349,9 @@ st.markdown(f"""
         background: white;
         padding-bottom: 0.3rem;
         border-bottom: 1px solid #e8f4e8;
+        width: 100vw;
+        left: 0;
+        margin-left: -1rem;
     }}
 
     /* Keep "Logged in as …" on one line */
@@ -398,6 +403,10 @@ st.markdown(f"""
         padding: 18px 28px;
         margin-bottom: 0.5rem;
         border-radius: 0;
+        margin-left: -28px;
+        margin-right: -28px;
+        width: calc(100% + 56px);
+    }}
     }}
     .agri-banner h1 {{
         color: #fff;
@@ -455,7 +464,16 @@ with col_user:
     st.markdown(f'<div class="user-email-bar">{icon_html}<span>Logged in as <strong>{email}</strong></span></div>', unsafe_allow_html=True)
 with col_signout:
     if st.button("Sign Out", width='stretch'):
-        st.session_state.logged_in = False
+        _tok = st.session_state.pop("_session_token", None)
+        if _tok:
+            try:
+                sqlite3.connect(DB_PATH).execute(
+                    "DELETE FROM session_tokens WHERE token = ?", (_tok,)
+                ).connection.commit()
+            except Exception:
+                pass
+        st.query_params.clear()
+        st.session_state.logged_in  = False
         st.session_state.user_email = ""
         st.switch_page("pages/login.py")
 
