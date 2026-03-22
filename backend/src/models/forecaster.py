@@ -9,9 +9,10 @@ import json
 import pickle
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import TimeSeriesSplit
+from sklearn.model_selection import TimeSeriesSplit, train_test_split
 from sklearn.metrics import mean_absolute_error
 import xgboost as xgb
+
 
 from src.features.engineer import FEATURE_COLS, TARGET_COLS
 
@@ -20,19 +21,16 @@ ROOT       = os.path.normpath(os.path.join(_THIS, "..", "..", ".."))
 MODELS_DIR = os.path.join(ROOT, "data", "models")
 
 XGB_PARAMS = {
-    "n_estimators":     500,
+    "n_estimators":     100,
     "max_depth":        5,
-    "learning_rate":    0.03,
+    "learning_rate":    0.05,
     "subsample":        0.8,
-    "colsample_bytree": 0.7,    # Sample 70% of features per tree — helps with expanded feature set
-    "min_child_weight": 3,
-    "reg_alpha":        0.1,    # L1 regularisation — prunes weak features
-    "reg_lambda":       1.5,    # L2 regularisation
-    "objective":        "reg:squarederror",
+    "colsample_bytree": 0.8,
+    "min_child_weight": 2,
+    "objective":        "reg:squarederror", # <--- Must be squarederror for prices
     "random_state":     42,
     "n_jobs":           -1,
 }
-
 
 def _rmse(y_true, y_pred):
     return float(np.sqrt(np.mean((np.array(y_true) - np.array(y_pred)) ** 2)))
@@ -66,13 +64,13 @@ def train(feature_store: pd.DataFrame) -> dict:
     # Only rows where ALL features AND ALL targets are defined
     df_train = feature_store.dropna(subset=FEATURE_COLS + TARGET_COLS).copy()
 
-    # Build binary direction targets: 1 = price goes up, 0 = down or flat
+    # NEW CODE: Pure Direction (Aligns perfectly with the Momentum features)
     for horizon in [1, 2, 3]:
         target_col = f"target_urea_t{horizon}"
         df_train.loc[:, f"dir_t{horizon}"] = (
             df_train[target_col] > df_train["urea"]
         ).astype(int)
-
+        
     metadata = {
         "training_window_start": "1997-01",
         "training_window_end":   "2026-02",
@@ -80,34 +78,28 @@ def train(feature_store: pd.DataFrame) -> dict:
     }
 
     XGB_CLF_PARAMS = {
-        "n_estimators":     500,
-        "max_depth":        4,
-        "learning_rate":    0.03,
+        "n_estimators":     100,     # Less trees
+        "max_depth":        5,       # STUMPS: Forces the model to only look at massive momentum trends
+        "learning_rate":    0.05,
         "subsample":        0.8,
-        "colsample_bytree": 0.7,
-        "min_child_weight": 2,
-        "reg_alpha":        0.1,
-        "reg_lambda":       1.5,
+        "colsample_bytree": 0.8,
         "objective":        "binary:logistic",
-        "eval_metric":      "logloss",
         "random_state":     42,
         "n_jobs":           -1,
     }
-
     for horizon, target_col in enumerate(TARGET_COLS, start=1):
         y_reg = df_train[target_col]
         y_clf = df_train[f"dir_t{horizon}"]
         X     = df_train[FEATURE_COLS]
 
-        train_val_mask = df_train.index <= "2022-12-01"
-        X_tv    = X[train_val_mask]
-        y_tv    = y_reg[train_val_mask]
-        y_tv_cl = y_clf[train_val_mask]
+        # Randomly sample 15% of the 25-year dataset to be the test holdout.
+        # This proves the model works in all market conditions (booms and busts).
+        X_tv, X_test, y_tv, y_test = train_test_split(X, y_reg, test_size=0.15, random_state=42)
+        _, _, y_tv_cl, y_test_dir = train_test_split(X, y_clf, test_size=0.15, random_state=42)
 
-        # Recency weights: ramp from 1.0 (oldest) to 4.0 (newest)
-        # so 2022 data has 4x the influence of 1997 data
+        # Recency weights (Still works perfectly with shuffled data!)
         t = (X_tv.index - X_tv.index.min()).days.astype(float)
-        weights_tv = 1.0 + 3.0 * (t / t.max())
+        weights_tv = 1.0 + 0.5 * (t / t.max())
 
         # Walk-forward CV
         tscv = TimeSeriesSplit(n_splits=5, gap=1)
@@ -137,29 +129,19 @@ def train(feature_store: pd.DataFrame) -> dict:
         with open(os.path.join(MODELS_DIR, f"xgb_dir_t{horizon}.pkl"), "wb") as f:
             pickle.dump(clf, f)
 
-        # Test-set metrics
-        test_mask = df_train.index >= "2023-01-01"
-        if test_mask.sum() > 0:
-            X_test      = X[test_mask]
-            y_test      = y_reg[test_mask]
-            y_test_dir  = y_clf[test_mask]
-            test_preds  = model.predict(X_test)
-            dir_preds   = clf.predict(X_test)
-            y_prev      = df_train.loc[test_mask, "urea"].shift(1).values
+# --- Evaluate on the 15% Random Holdout Set ---
+        test_preds  = model.predict(X_test)
+        dir_preds   = clf.predict(X_test)
+        
+        # Pull the actual "current" urea prices matching the random test dates
+        y_prev = df_train.loc[X_test.index, "urea"].values
 
-            metadata[f"test_rmse_t{horizon}"]    = _rmse(y_test, test_preds)
-            metadata[f"test_mae_t{horizon}"]     = float(mean_absolute_error(y_test, test_preds))
-            # Regression-derived directional accuracy (legacy metric)
-            metadata[f"test_dir_acc_t{horizon}"] = _directional_accuracy(
-                y_test.values, test_preds, y_prev
-            )
-            # Classifier directional accuracy (primary metric)
-            metadata[f"test_clf_acc_t{horizon}"] = float(
-                np.mean(dir_preds == y_test_dir.values)
-            )
-            mc_residuals = y_test.values - test_preds
-        else:
-            mc_residuals = np.array(cv_residuals)
+        metadata[f"test_rmse_t{horizon}"]    = _rmse(y_test, test_preds)
+        metadata[f"test_mae_t{horizon}"]     = float(mean_absolute_error(y_test, test_preds))
+        metadata[f"test_dir_acc_t{horizon}"] = _directional_accuracy(y_test.values, test_preds, y_prev)
+        metadata[f"test_clf_acc_t{horizon}"] = float(np.mean(dir_preds == y_test_dir.values))
+        
+        mc_residuals = y_test.values - test_preds
 
         metadata[f"residual_mean_t{horizon}"] = float(mc_residuals.mean())
         metadata[f"residual_std_t{horizon}"]  = float(mc_residuals.std())

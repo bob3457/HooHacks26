@@ -14,6 +14,8 @@ DATA  = os.path.join(ROOT, "data")
 
 FEATURE_COLS = [
     # Raw + lags
+    "urea",
+    "dap",
     "ng_spot",
     "ng_lag1", "ng_lag2", "ng_lag3", "ng_lag4", "ng_lag5", "ng_lag6",
     "ng_lag9", "ng_lag12",
@@ -142,6 +144,14 @@ def build_features(data: dict) -> pd.DataFrame:
     ng_std_12m  = df["ng_spot"].rolling(12).std()
     df["ng_zscore_12m"] = (df["ng_spot"] - ng_mean_12m) / ng_std_12m
 
+    # ── Local Context (Helps XGBoost handle price levels it hasn't seen)
+    df["urea_dist_from_ma3"] = df["urea"] - df["urea"].rolling(3).mean()
+    df["urea_dist_from_ma12"] = df["urea"] - df["urea"].rolling(12).mean()
+    df["ng_dist_from_ma3"] = df["ng_spot"] - df["ng_spot"].rolling(3).mean()
+    
+    # Spread feature (the absolute dollar difference between Urea and Gas costs)
+    # Gas is usually priced per MMBtu, Urea per ton. The raw distance is a strong proxy for manufacturer profit margins.
+    df["urea_ng_spread"] = df["urea"] - (df["ng_spot"] * 33.0) # Approx 33 MMBtu of gas to make 1 ton of Urea
     # ── DAP features
     df["dap_lag1"]      = df["dap"].shift(1)
     df["dap_urea_ratio"] = df["dap"] / df["urea"]

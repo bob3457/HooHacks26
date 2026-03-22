@@ -36,6 +36,6 @@ print("\n=== Training complete ===")
 print(f"  Residual std  t1: ${metadata['residual_std_t1']:.1f}/mt")
 print(f"  Residual std  t2: ${metadata['residual_std_t2']:.1f}/mt")
 print(f"  Residual std  t3: ${metadata['residual_std_t3']:.1f}/mt")
-if "test_rmse_t2" in metadata:
-    print(f"  Test RMSE     t2: ${metadata['test_rmse_t2']:.1f}/mt")
-    print(f"  Test dir-acc  t2: {metadata.get('test_dir_acc_t2', 0)*100:.0f}%")
+if "test_clf_acc_t3" in metadata:
+    print(f"  Test RMSE       t3 (90-Day): ${metadata.get('test_rmse_t3', 0):.1f}/mt")
+    print(f"  Classifier Acc  t3 (90-Day): {metadata.get('test_clf_acc_t3', 0)*100:.0f}%")
