@@ -559,257 +559,99 @@ def _build_cost_bars_html(df: pd.DataFrame, fert_totals: dict) -> str:
 # TAB 1 — OVERVIEW
 # ════════════════════════════════════════════════════════════════════════════
 with tab_overview:
+    # ── Shared computed values ────────────────────────────────────────────
+    fert          = get_fertilizer_totals(df) if not df.empty else {"fertilizer_used_lbs": 0, "fertilizer_cost_usd": 0}
+    total_acres   = float(df["acres"].sum()) if not df.empty else 0.0
+    total_cost    = fert["fertilizer_cost_usd"]
+    cost_per_acre = (total_cost / total_acres) if total_acres > 0 else 0.0
+    n_crops       = int(df["crop_name"].nunique()) if not df.empty else 0
 
-    # ── Add crop form ─────────────────────────────────────────────────────
-    with st.expander("Add a Crop", expanded=df.empty):
-        COMMON_CROPS = [
-            "Alfalfa", "Barley", "Canola", "Cotton", "Corn", "Hay",
-            "Oats", "Rice", "Sorghum", "Soybeans", "Sunflowers", "Wheat",
-        ]
-        if "custom_crops" not in st.session_state:
-            st.session_state.custom_crops = []
+    sig           = (cache or {}).get("signal", {})
+    cur_price     = sig.get("currentPrice", 0) or 0
+    signal_label  = sig.get("signal", "N/A")
+    ng_chg        = sig.get("ng_change_30d", 0) or 0
 
-        # Apply any staged selectbox values BEFORE the widgets render
-        if "_next_crop" in st.session_state:
-            st.session_state["crop_selectbox"] = st.session_state.pop("_next_crop")
-        if "_next_season" in st.session_state:
-            st.session_state["season_selectbox"] = st.session_state.pop("_next_season")
+    urea_hist     = (cache or {}).get("urea_history", None)
 
-        all_crops = COMMON_CROPS + st.session_state.custom_crops + ["Add new crop…"]
+    col_left, col_center, col_right = st.columns([1, 1.4, 1])
 
-        # ── Crop + Season selectors (outside form so they trigger reruns) ──
-        col_a, col_c, col_yr = st.columns([3, 3, 1])
+    # ── COLUMN 1: Financial Panel ─────────────────────────────────────────
+    with col_left:
+        spark_svg = ""
+        if urea_hist and urea_hist.get("values"):
+            spark_svg = _build_sparkline_svg(urea_hist["values"][-12:])
 
-        crop_sel = col_a.selectbox("Crop", options=all_crops, key="crop_selectbox")
-        if crop_sel == "Add new crop…":
-            new_crop_text = col_a.text_input(
-                "New crop name", placeholder="e.g. Millet", key="new_crop_text"
+        if abs(ng_chg) > 0.05:
+            direction = "up" if ng_chg > 0 else "down"
+            insight_html = (
+                f'<div style="background:rgba(255,255,255,0.10);border-radius:8px;'
+                f'padding:8px 10px;font-size:0.68rem;color:#d1fae5;line-height:1.5;margin-top:6px;">'
+                f'💡 Nat gas {direction} {abs(ng_chg)*100:.0f}% last 30 days — '
+                f'watch for urea cost changes in 6–8 weeks.</div>'
             )
-            if col_a.button("Add to list", key="add_crop_btn"):
-                nc = new_crop_text.strip().title()
-                if nc and nc not in COMMON_CROPS and nc not in st.session_state.custom_crops:
-                    st.session_state.custom_crops.append(nc)
-                if nc:
-                    st.session_state["_next_crop"] = nc
-                    st.rerun()
-
-        season_options = st.session_state.seasons + ["Create new…"]
-        season_sel = col_c.selectbox("Season", options=season_options, key="season_selectbox")
-        if season_sel == "Create new…":
-            new_season_text = col_c.text_input(
-                "New season name", placeholder="e.g. Summer", key="new_season_text"
+        elif df.empty:
+            insight_html = (
+                '<div style="background:rgba(255,255,255,0.10);border-radius:8px;'
+                'padding:8px 10px;font-size:0.68rem;color:#d1fae5;line-height:1.5;margin-top:6px;">'
+                '💡 Add crops to see your cost exposure.</div>'
             )
-            if col_c.button("Add season", key="add_season_btn"):
-                ns = new_season_text.strip().title()
-                if ns and ns not in st.session_state.seasons:
-                    st.session_state.seasons.append(ns)
-                if ns:
-                    st.session_state["_next_season"] = ns
-                    st.rerun()
+        else:
+            insight_html = ""
 
-        year_sel = col_yr.number_input("Year", min_value=2000, max_value=2100, value=2025, step=1, key="year_input")
+        cost_bars_html = _build_cost_bars_html(df, fert)
 
-        # ── Acres input + submit (inside form) ────────────────────────────
-        with st.form("add_crop_form", clear_on_submit=True):
-            col_b, col_d = st.columns([5, 1])
-            acres_input = col_b.text_input("Acres", placeholder="e.g. 320")
-            col_d.markdown("<br>", unsafe_allow_html=True)
-            submitted = col_d.form_submit_button("Add", width='stretch')
-
-            if submitted:
-                crop_val   = st.session_state.get("crop_selectbox", "")
-                season_val = st.session_state.get("season_selectbox", "")
-                year_val   = st.session_state.get("year_input", 2025)
-
-                if not crop_val or crop_val == "Add new crop…":
-                    st.warning("Please select (or add) a crop first.")
-                    st.stop()
-                if not season_val or season_val == "Create new…":
-                    st.warning("Please select (or create) a season first.")
-                    st.stop()
-                try:
-                    acres_val = float(acres_input.strip().replace(",", ""))
-                    if acres_val <= 0:
-                        raise ValueError
-                except ValueError:
-                    st.warning("Please enter a valid number of acres.")
-                    st.stop()
-
-                add_crop(email, crop_val, acres_val, season_val, int(year_val))
-                st.success(f"Added {crop_val} — {season_val} {int(year_val)} ({acres_val:,.0f} acres).")
-                # Preserve pie filter state across the rerun
-                st.session_state["_pie_select_all_saved"] = st.session_state.get("pie_select_all", True)
-                st.session_state["_pie_filter_saved"] = st.session_state.get("pie_season_filter", None)
-                st.rerun()
-
-    # ── No data state ─────────────────────────────────────────────────────
-    if df.empty:
-        st.markdown(
-            '<div class="empty-state">'
-            '<p style="font-size:1.4rem; font-weight:500; margin-bottom:0.8rem;">No farm data yet</p>'
-            '<p style="color:#999; font-size:1.1rem;">Use the form above to add your crops and acreage.</p>'
-            '</div>',
-            unsafe_allow_html=True,
+        hero_val   = f"${total_cost:,.0f}" if not df.empty else "—"
+        acres_line = (
+            f"{total_acres:,.0f} acres · {n_crops} crop{'s' if n_crops != 1 else ''}"
+            if not df.empty else "No crops added yet"
         )
-    else:
-        fert = get_fertilizer_totals(df)
-        total_acres      = df["acres"].sum()
-        num_crops        = df["crop_name"].nunique()
-        total_fertilizer = fert["fertilizer_used_lbs"]
-        total_cost       = fert["fertilizer_cost_usd"]
+        per_acre  = f"${cost_per_acre:.2f}" if not df.empty else "—"
+        urea_disp = f"${cur_price:.0f}/mt" if cur_price else "—"
 
-        c1, c2, c3, c4 = st.columns(4)
-        metrics = [
-            (c1, "Total Acres",     f"{total_acres:,.0f}"),
-            (c2, "Different Crops", str(num_crops)),
-            (c3, "Fertilizer Used", f"{total_fertilizer:,.0f} lbs"),
-            (c4, "Fertilizer Cost", f"${total_cost:,.0f}"),
-        ]
-        
-        for col, label, value in metrics:
-            with col:
-                st.markdown(
-                    f'<div class="metric-card" style="padding-top: 0.8rem;">'
-                    f'<div class="metric-label">{label}</div>'
-                    f'<div class="metric-value">{value}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,#14532d 0%,#166534 55%,#15803d 100%);
+                    border-radius:12px;padding:20px 18px;
+                    display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;
+                        color:#86efac;margin-bottom:4px;">Season Fertilizer Exposure</div>
+            <div style="font-size:2rem;font-weight:800;color:#fff;line-height:1.1;">{hero_val}</div>
+            <div style="font-size:0.68rem;color:#bbf7d0;margin-top:4px;">{acres_line}</div>
+          </div>
+          {spark_svg}
+          <div style="display:flex;gap:14px;border-top:1px solid rgba(255,255,255,0.12);padding-top:10px;">
+            <div>
+              <div style="font-size:0.52rem;color:#6ee7b7;text-transform:uppercase;
+                          letter-spacing:0.5px;">Per Acre</div>
+              <div style="font-size:0.85rem;font-weight:700;color:#fff;margin-top:1px;">{per_acre}</div>
+            </div>
+            <div>
+              <div style="font-size:0.52rem;color:#6ee7b7;text-transform:uppercase;
+                          letter-spacing:0.5px;">Urea Price</div>
+              <div style="font-size:0.85rem;font-weight:700;color:#fff;margin-top:1px;">{urea_disp}</div>
+            </div>
+            <div>
+              <div style="font-size:0.52rem;color:#6ee7b7;text-transform:uppercase;
+                          letter-spacing:0.5px;">60-Day Signal</div>
+              <div style="font-size:0.85rem;font-weight:700;color:#fff;margin-top:1px;">{signal_label}</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid rgba(255,255,255,0.12);padding-top:8px;">
+            <div style="font-size:0.55rem;color:#86efac;text-transform:uppercase;
+                        letter-spacing:0.5px;margin-bottom:6px;">Cost by Crop</div>
+            {cost_bars_html}
+          </div>
+          {insight_html}
+        </div>
+        """, unsafe_allow_html=True)
 
-        st.markdown("---")
+    # ── COLUMN 2: placeholder (filled in Task 3) ──────────────────────────
+    with col_center:
+        st.write("chart coming soon")
 
-        col_chart, col_gap, col_table = st.columns([5, 0.3, 3])
-
-        with col_chart:
-            st.subheader("Crop Distribution")
-
-            # Year filter
-            all_years_in_data = sorted(df["year"].dropna().astype(int).unique().tolist(), reverse=True)
-            current_year = 2026
-            default_year = current_year if current_year in all_years_in_data else (all_years_in_data[0] if all_years_in_data else current_year)
-            if "pie_year_filter" not in st.session_state:
-                st.session_state["pie_year_filter"] = default_year
-            # If saved year no longer exists in data, reset to default
-            if st.session_state["pie_year_filter"] not in all_years_in_data and all_years_in_data:
-                st.session_state["pie_year_filter"] = default_year
-            selected_year = st.selectbox(
-                "Year",
-                options=all_years_in_data,
-                index=all_years_in_data.index(st.session_state["pie_year_filter"]) if st.session_state["pie_year_filter"] in all_years_in_data else 0,
-                key="pie_year_filter",
-            )
-
-            # Season filter
-            all_seasons_in_data = sorted(df["season"].unique().tolist())
-            # Ensure any new seasons from session state are also available
-            all_seasons_available = sorted(set(all_seasons_in_data + st.session_state.seasons))
-
-            # Restore saved filter state if coming from an add-crop rerun
-            if "_pie_select_all_saved" in st.session_state:
-                st.session_state["pie_select_all"] = st.session_state.pop("_pie_select_all_saved")
-            if "_pie_filter_saved" in st.session_state:
-                saved = st.session_state.pop("_pie_filter_saved")
-                if saved is not None:
-                    st.session_state["pie_season_filter"] = saved
-
-            # Initialize default only when the key is absent (avoids session-state conflict)
-            if "pie_select_all" not in st.session_state:
-                st.session_state["pie_select_all"] = True
-            select_all = st.checkbox("Select all seasons", key="pie_select_all")
-            if select_all:
-                selected_seasons = all_seasons_available
-            else:
-                selected_seasons = st.multiselect(
-                    "Filter by season",
-                    options=all_seasons_available,
-                    default=all_seasons_in_data,
-                    key="pie_season_filter",
-                )
-
-            filtered_df = df[
-                (df["season"].isin(selected_seasons)) &
-                (df["year"].astype(int) == int(selected_year))
-            ].copy() if selected_seasons else df.iloc[0:0].copy()
-
-            season_base = get_season_base_colors(all_seasons_available)
-
-            if filtered_df.empty:
-                st.info("No crops match the selected year and seasons.")
-            else:
-                crop_colors = get_crop_colors_for_df(filtered_df, season_base)
-
-                # When the same crop appears in multiple seasons, append the season to the label
-                # so Plotly treats them as distinct slices instead of merging them.
-                dup_crops = filtered_df["crop_name"].duplicated(keep=False)
-                filtered_df["display_label"] = filtered_df.apply(
-                    lambda r: f"{r['crop_name']} ({r['season']})" if dup_crops[r.name] else r["crop_name"],
-                    axis=1,
-                )
-
-                # Build legend traces: one invisible scatter per season for the color key
-                fig = go.Figure()
-                fig.add_trace(go.Pie(
-                    labels=filtered_df["display_label"],
-                    values=filtered_df["acres"],
-                    marker=dict(colors=crop_colors, line=dict(color="white", width=1.5)),
-                    textposition="inside",
-                    textinfo="percent+label",
-                    hole=0.35,
-                    showlegend=False,
-                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} acres (%{percent})<extra></extra>",
-                ))
-                # Add dummy traces for the season legend
-                for season in [s for s in all_seasons_available if s in selected_seasons]:
-                    fig.add_trace(go.Scatter(
-                        x=[None], y=[None],
-                        mode="markers",
-                        marker=dict(size=10, color=season_base[season], symbol="square"),
-                        name=season,
-                        showlegend=True,
-                    ))
-                fig.update_layout(
-                    legend_title_text="Season",
-                    margin=dict(t=20, b=20, l=20, r=20),
-                    xaxis=dict(visible=False, fixedrange=True),
-                    yaxis=dict(visible=False, fixedrange=True),
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                )
-                st.plotly_chart(fig, width='stretch')
-
-        with col_table:
-            st.subheader("Crop Breakdown")
-            if "editing_id" not in st.session_state:
-                st.session_state.editing_id = None
-
-            for _, row in df.iterrows():
-                rid = row["id"]
-                year_label = f" · {int(row['year'])}" if "year" in row and pd.notna(row["year"]) else ""
-                if st.session_state.editing_id == rid:
-                    with st.form(key=f"edit_form_{rid}"):
-                        new_acres = st.number_input(
-                            f"Acres for {row['crop_name']} ({row['season']}{year_label})",
-                            min_value=0.1, value=float(row["acres"]), step=1.0,
-                            key=f"edit_acres_{rid}",
-                        )
-                        ec1, ec2 = st.columns(2)
-                        if ec1.form_submit_button("Save", width='stretch'):
-                            update_crop_acres(rid, new_acres)
-                            st.session_state.editing_id = None
-                            st.rerun()
-                        if ec2.form_submit_button("Cancel", width='stretch'):
-                            st.session_state.editing_id = None
-                            st.rerun()
-                else:
-                    r1, r2, r3 = st.columns([3, 1, 1])
-                    r1.markdown(f"**{row['crop_name']}** · {row['acres']:,.0f} acres  \n*{row['season']}{year_label}*")
-                    if r2.button("Edit", key=f"edit_{rid}", width='stretch'):
-                        st.session_state.editing_id = rid
-                        st.rerun()
-                    if r3.button("Remove", key=f"del_{rid}", width='stretch'):
-                        delete_crop(rid)
-                        st.rerun()
-
+    # ── COLUMN 3: placeholder (filled in Task 4) ──────────────────────────
+    with col_right:
+        st.write("management coming soon")
 
 # ════════════════════════════════════════════════════════════════════════════
 # TAB 2 — FERTILIZER COSTS & RISK ASSESSMENT
