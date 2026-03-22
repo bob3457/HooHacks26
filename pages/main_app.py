@@ -9,6 +9,8 @@ import os
 import json
 import numpy as np
 from scipy.stats import norm as _norm
+import pydeck as pdk
+import base64
 
 # ── Fertilizer constants (nitrogen intensity per crop) ────────────────────────
 N_INTENSITY_LBS_PER_ACRE = {
@@ -17,6 +19,43 @@ N_INTENSITY_LBS_PER_ACRE = {
 }
 UREA_N_CONTENT = 0.46   # urea is 46% nitrogen by weight
 LBS_PER_MT     = 2204.6 # pounds per metric ton
+import json # Make sure to import json at the top of your file!
+
+# USDA 2023 planted acres by state (thousands of acres)
+# (lat, lng, corn_k, wheat_k, soy_k)
+_STATE_AG = {
+    "Iowa":           (42.00, -93.50, 12900,     0,  9400),
+    "Illinois":       (40.00, -89.00, 10800,   500, 10100),
+    "Nebraska":       (41.50, -99.90, 10300,  1400,  5500),
+    "Minnesota":      (46.40, -94.30,  8100,  1600,  7500),
+    "Indiana":        (40.30, -86.10,  5400,   500,  5800),
+    "South Dakota":   (44.30,-100.30,  5200,  1600,  4300),
+    "Kansas":         (38.50, -98.40,  4400,  7800,  5000),
+    "Ohio":           (40.40, -82.70,  3700,   500,  4900),
+    "Wisconsin":      (44.50, -89.50,  3600,   100,  1900),
+    "Missouri":       (38.30, -92.40,  3100,   600,  5400),
+    "North Dakota":   (47.50,-100.50,  2600,  5500,  5900),
+    "Michigan":       (44.30, -84.50,  2300,   400,  2300),
+    "Texas":          (31.40, -99.30,  1900,  5000,   100),
+    "Colorado":       (39.00,-105.50,  1500,  2500,   400),
+    "Kentucky":       (37.80, -84.90,  1300,   400,  1600),
+    "Oklahoma":       (35.60, -97.50,   400,  4500,   700),
+    "Montana":        (46.90,-110.40,   200,  4500,   100),
+    "North Carolina": (35.50, -79.30,   900,   100,  1100),
+    "Arkansas":       (34.80, -92.20,   800,   200,  3000),
+    "Tennessee":      (35.80, -86.50,   800,   200,  1500),
+    "Pennsylvania":   (41.20, -77.20,  1100,   200,   700),
+    "New York":       (42.50, -76.00,   800,   200,   300),
+    "Mississippi":    (32.70, -89.70,   400,   100,  2300),
+    "Washington":     (47.40,-120.40,   100,  2100,   100),
+    "Virginia":       (37.40, -79.00,   400,   200,   600),
+    "Georgia":        (32.20, -83.40,   500,   300,   500),
+    "Maryland":       (39.00, -76.80,   500,   200,   300),
+    "Idaho":          (44.20,-114.50,   100,  1500,   100),
+    "Wyoming":        (43.00,-107.50,   100,   500,   100),
+    "California":     (37.00,-119.50,   200,   700,   100),
+    "Delaware":       (39.00, -75.50,   200,   100,   200),
+}
 import base64
 from PIL import Image
 
@@ -25,22 +64,31 @@ if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.switch_page("login.py")
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "users.db")
-IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "images")
+
+# Add this new line:
+CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "processed", "cache.json")
 
 
-# ── Image helper ──────────────────────────────────────────────────────────────
-def get_image_base64(filename):
-    """Convert image to base64 data URL"""
-    img_path = os.path.join(IMAGES_DIR, filename)
-    if os.path.exists(img_path):
-        with open(img_path, "rb") as img_file:
-            data = base64.b64encode(img_file.read()).decode()
-            ext = filename.split(".")[-1].lower()
-            mime_type = "image/jpeg" if ext == "jpg" else f"image/{ext}"
-            return f"data:{mime_type};base64,{data}"
-    return None
-
-
+def load_cache():
+    """Safely loads the generated ML cache file."""
+    try:
+        with open(CACHE_PATH, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"🚨 Warning: Could not load cache.json: {e}")
+        # Return a fallback dictionary if the file hasn't been generated yet
+        return {
+            "forecast": {
+                "labels": ["Apr 2026", "May 2026", "Jun 2026"],
+                "mean": [520, 535, 548]
+            },
+            "signal": {
+                "recommendation": "System Offline",
+                "urgency": "Unknown",
+                "rationale": "Please run backend/run_pipeline.py",
+                "key_driver": "N/A"
+            }
+        }    
 # ── Database ─────────────────────────────────────────────────────────────────
 def init_farm_db():
     conn = sqlite3.connect(DB_PATH)
@@ -94,6 +142,19 @@ def delete_crop(row_id: int):
     conn.execute("DELETE FROM farm_crops WHERE id = ?", (row_id,))
     conn.commit()
     conn.close()
+
+
+# ── Image helper ──────────────────────────────────────────────────────────────
+def get_image_base64(filename):
+    """Convert image to base64 data URL"""
+    img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "images", filename)
+    if os.path.exists(img_path):
+        with open(img_path, "rb") as img_file:
+            data = base64.b64encode(img_file.read()).decode()
+            ext = filename.split(".")[-1].lower()
+            mime_type = "image/jpeg" if ext == "jpg" else f"image/{ext}"
+            return f"data:{mime_type};base64,{data}"
+    return None
 
 
 # ── Season helpers ────────────────────────────────────────────────────────────
@@ -189,49 +250,107 @@ def get_fertilizer_totals(crops_df: pd.DataFrame) -> dict:
 
 # ── Price / risk data functions (swap bodies with real model calls later) ─────
 def get_fertilizer_price_forecast() -> pd.DataFrame:
-    """
-    PLACEHOLDER — replace the body with a call to your forecasting module, e.g.:
-        from backend.src.models.forecaster import predict_fertilizer_prices
-        return predict_fertilizer_prices()
-
-    Returns a DataFrame with columns:
-        month (str)  |  predicted_price_per_ton (float)
-    """
-    base = datetime.today().replace(day=1)
-    months = [(base + timedelta(days=31 * i)).strftime("%b %Y") for i in range(12)]
-    prices = [520, 535, 548, 560, 572, 558, 545, 530, 518, 510, 505, 512]
-    return pd.DataFrame({"month": months, "predicted_price_per_ton": prices})
-
+    """Reads the ML model's 3-month price forecast from the pipeline cache."""
+    try:
+        with open(CACHE_PATH, "r") as f:
+            cache = json.load(f)
+            
+        # Extract the ML forecast data generated by run_pipeline.py
+        labels = cache["forecast"]["labels"]
+        prices = cache["forecast"]["mean"]
+        
+        return pd.DataFrame({
+            "month": labels,
+            "predicted_price_per_ton": prices
+        })
+    except Exception as e:
+        # Fallback if the cache file isn't generated yet
+        print(f"Warning: Could not load cache.json: {e}")
+        base = datetime.today().replace(day=1)
+        months = [(base + timedelta(days=31 * i)).strftime("%b %Y") for i in range(3)]
+        return pd.DataFrame({"month": months, "predicted_price_per_ton": [520, 535, 548]})
 
 def get_buy_advice() -> dict:
-    """
-    PLACEHOLDER — replace the body with a call to your signals/risk module, e.g.:
-        from backend.src.signals.engine import get_fertilizer_advice
-        return get_fertilizer_advice()
-
-    Returns a dict with keys:
-        recommendation (str)  |  risk_level (str)  |  reasoning (str)
-    """
-    return {
-        "recommendation": "Buy within the next 30 days",
-        "risk_level": "Medium",
-        "reasoning": (
-            "Current futures indicate a ~10% price increase over the next quarter. "
-            "Locking in supply now reduces exposure to spring demand spikes. "
-            "Weather models suggest normal planting conditions, supporting stable demand."
-        ),
-    }
-
-
-# ── Forecast cache loader ─────────────────────────────────────────────────────
-@st.cache_data(ttl=3600)
-def load_cache():
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "processed", "cache.json")
+    """Reads the Monte Carlo risk assessment and signal from the pipeline cache."""
     try:
-        with open(path) as f:
-            return json.load(f)
-    except Exception:
-        return None
+        with open(CACHE_PATH, "r") as f:
+            cache = json.load(f)
+            
+        signal_data = cache["signal"]
+        
+        # Map the backend engine's output to our Streamlit UI dictionary
+        return {
+            "recommendation": signal_data["recommendation"],  # e.g., "Buy Now" or "Wait"
+            "risk_level": signal_data["urgency"].title(),     # e.g., "High", "Moderate", "Low"
+            "reasoning": f"{signal_data['rationale']} \n\n**Driver:** {signal_data['key_driver']}"
+        }
+    except Exception as e:
+        return {
+            "recommendation": "System Offline",
+            "risk_level": "Unknown",
+            "reasoning": "Could not connect to the AgriSignal AI Engine. Please run the backend pipeline."
+        }
+
+# ── State fertilizer exposure builder ────────────────────────────────────────
+def build_state_df(cache: dict) -> pd.DataFrame:
+    """
+    Returns a DataFrame with one row per state containing:
+      urea_mt         — total urea metric tons needed annually
+      current_cost_m  — fertilizer bill at current price ($M)
+      forecast_cost_m — fertilizer bill at t2 forecast price ($M)
+      impact_m        — cost change vs. today ($M, positive = more expensive)
+      elevation       — column height in metres for PyDeck (normalised, max 500 km)
+      color           — RGBA list for PyDeck heat gradient
+      tooltip         — HTML tooltip string
+    """
+    sig           = cache["signal"]
+    current_price = sig["currentPrice"]
+    forecast_t2   = sig["forecast_t2"]
+    price_chg_pct = (forecast_t2 - current_price) / current_price * 100
+
+    rows = []
+    for state, (lat, lng, corn_k, wheat_k, soy_k) in _STATE_AG.items():
+        n_lbs     = corn_k * 1000 * 150 + wheat_k * 1000 * 90 + soy_k * 1000 * 60
+        urea_mt   = n_lbs / (UREA_N_CONTENT * LBS_PER_MT)
+        cur_cost  = urea_mt * current_price / 1e6
+        fc_cost   = urea_mt * forecast_t2   / 1e6
+        impact    = fc_cost - cur_cost
+        rows.append({
+            "state":          state,
+            "lat":            lat,
+            "lng":            lng,
+            "corn_acres":     corn_k * 1000,
+            "wheat_acres":    wheat_k * 1000,
+            "soy_acres":      soy_k  * 1000,
+            "urea_mt":        urea_mt,
+            "current_cost_m": cur_cost,
+            "forecast_cost_m":fc_cost,
+            "impact_m":       impact,
+        })
+
+    df = pd.DataFrame(rows)
+
+    # Elevation: normalise urea_mt so the tallest state = 500 km
+    max_mt        = df["urea_mt"].max()
+    df["elevation"] = (df["urea_mt"] / max_mt) * 500_000
+
+    # Heat color: green (low exposure) → yellow → red (high exposure)
+    intensity        = df["urea_mt"] / max_mt          # 0-1
+    df["color_r"]    = (intensity * 255).astype(int)
+    df["color_g"]    = (255 - intensity * 200).clip(0, 255).astype(int)
+    df["color_b"]    = 30
+    df["color_a"]    = 210
+
+    sign = "▲" if price_chg_pct >= 0 else "▼"
+    df["tooltip"] = df.apply(lambda r: (
+        f"<b>{r['state']}</b><br>"
+        f"Urea needed: {r['urea_mt']/1000:,.0f}K mt/yr<br>"
+        f"Current bill: ${r['current_cost_m']:.1f}M<br>"
+        f"60-day forecast: ${r['forecast_cost_m']:.1f}M<br>"
+        f"Impact: {sign}${abs(r['impact_m']):.1f}M ({price_chg_pct:+.1f}%)"
+    ), axis=1)
+
+    return df.sort_values("urea_mt", ascending=False)
 
 
 # ── Page setup ───────────────────────────────────────────────────────────────
@@ -396,7 +515,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
-tab_overview, tab_fertilizer = st.tabs(["Overview", "Fertilizer Costs & Risk Assessment"])
+tab_overview, tab_fertilizer, tab_map = st.tabs(["Overview", "Fertilizer Costs & Risk Assessment", "🌍 Regional Price Map"])
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -595,6 +714,23 @@ with tab_fertilizer:
 
         # ── SECTION 1: BUY SIGNAL ─────────────────────────────────────────────
         st.subheader("📡 Buy Signal")
+        with st.expander("ℹ️ How to read this"):
+            st.markdown("""
+**Why natural gas?** Urea (the most common nitrogen fertilizer) is manufactured from natural gas.
+When nat gas prices rise, fertilizer factories pay more, and that cost passes to farmers 4–8 weeks later.
+This model exploits that lag to give you advance warning.
+
+**The four signals:**
+| Signal | Meaning |
+|---|---|
+| 🔴 **BUY NOW** | Prices forecast to rise >8% in 60 days with high confidence — lock in supply today |
+| 🟡 **CONSIDER BUYING** | Moderate upward pressure — partial pre-purchase recommended |
+| 🟢 **WAIT** | Prices forecast to fall — buying now would cost more than waiting |
+| ⚫ **NEUTRAL** | No strong signal — forecast is flat and probability is evenly split |
+
+**Confidence** is the Monte Carlo probability that price will be higher in 60 days.
+**Best month** is whichever of the 3 forecast months has the lowest median simulated price.
+            """)
 
         m1, m2, m3, m4 = st.columns(4)
         pct_chg = (sig["forecast_t2"] - sig["currentPrice"]) / sig["currentPrice"] * 100
@@ -633,6 +769,21 @@ with tab_fertilizer:
 
         # ── SECTION 2: PRICE FORECAST CHART ───────────────────────────────────
         st.subheader("📈 Urea Price History + XGBoost Forecast")
+        with st.expander("ℹ️ How to read this"):
+            st.markdown("""
+**Blue line** — actual urea spot prices ($/metric ton) from Jan 2018 to the most recent data month.
+
+**Red dashed line** — the XGBoost machine-learning model's point forecast for the next 3 months.
+XGBoost learns patterns between natural gas prices, storage levels, momentum, and seasonality to
+predict where urea prices are heading.
+
+**Red shaded band** — the 80% Monte Carlo confidence interval. The model ran 10,000 simulated futures
+and this band captures the middle 80% of outcomes. If the band is wide, uncertainty is high.
+If it's narrow, the model is more confident.
+
+**Nat Gas overlay (toggle)** — shows US natural gas spot price on the right axis (green line).
+Watch how nat gas spikes tend to precede urea spikes by several weeks — that's the signal this model captures.
+            """)
 
         show_ng = st.toggle("Overlay Natural Gas prices (secondary axis)", value=False)
 
@@ -712,11 +863,24 @@ with tab_fertilizer:
 
         # ── SECTION 3: MONTE CARLO DISTRIBUTION ───────────────────────────────
         st.subheader("🎲 Monte Carlo Price Distribution — 60-Day Horizon")
-        st.markdown(
-            "Each bar represents how often a simulated price landed in that range across "
-            "**10,000 paths**. Draws are taken from the XGBoost residual distribution "
-            "captured during walk-forward cross-validation."
-        )
+        st.markdown("Each bar shows how often a simulated price landed in that range across **10,000 paths**.")
+        with st.expander("ℹ️ How to read this"):
+            st.markdown("""
+**What is Monte Carlo simulation?**
+Instead of giving you one forecast number, we run 10,000 "what-if" scenarios by adding realistic
+random variation (drawn from the model's historical error distribution) to the XGBoost prediction.
+The result is a full picture of the range of possible outcomes, not just a point estimate.
+
+**The three lines:**
+| Line | Meaning |
+|---|---|
+| 🟢 **P10 — Optimistic** | Only 10% of simulations ended up *below* this price. A best-case scenario. |
+| 🟡 **P50 — Median** | Half of simulations were above, half below. The most likely single outcome. |
+| 🔴 **P90 — Pessimistic** | Only 10% of simulations ended up *above* this price. A worst-case budget number. |
+
+**How to use this as a farmer:** The P90 is your "disaster planning" number — the price you'd pay
+if things go badly. Budget fertilizer costs using P90, hope for P10.
+            """)
 
         fig_mc = go.Figure()
         fig_mc.add_trace(go.Histogram(
@@ -759,10 +923,22 @@ with tab_fertilizer:
 
         # ── SECTION 4: EXPOSURE CALCULATOR ────────────────────────────────────
         st.subheader("🧮 Fertilizer Cost Exposure Calculator")
-        st.markdown(
-            "Enter your farm details to project input costs at each forecast horizon "
-            "using the XGBoost price forecast and Monte Carlo uncertainty bands."
-        )
+        st.markdown("Project your actual fertilizer bill at each forecast horizon based on your crop mix and acreage.")
+        with st.expander("ℹ️ How to use this"):
+            st.markdown("""
+**Inputs:**
+- **Crop type** — different crops need different amounts of nitrogen (corn is the most intensive at 150 lbs N/acre)
+- **Acreage** — pre-filled from your farm profile if you've added crops in the Overview tab
+- **Pre-purchased %** — if you've already locked in some supply, slide this up to remove it from the calculation
+
+**The table shows three scenarios for each of the next 3 months:**
+- **Forecast Price** — XGBoost's point estimate (median of 10,000 simulations)
+- **P10 Low** — your cost if prices land in the optimistic 10th percentile
+- **P90 High** — your cost if prices land in the pessimistic 90th percentile
+
+**The math:** Nitrogen needed (lbs) ÷ 46% N content ÷ 2,204.6 lbs/mt = metric tons of urea required.
+Your cost = urea needed × forecast price.
+            """)
 
         # Pre-populate acreage from user's farm DB if available
         default_acres = float(df["acres"].sum()) if not df.empty else 500.0
@@ -807,11 +983,30 @@ with tab_fertilizer:
 
         # ── SECTION 4b: PRE-PURCHASE OPTIMIZER (CVaR) ─────────────────────────
         st.subheader("🎯 Pre-Purchase Optimizer")
-        st.markdown(
-            "Computes the statistically **optimal fraction to buy now vs. wait** "
-            "given your planting timeline and risk tolerance — minimising expected cost "
-            "while controlling downside exposure via CVaR."
-        )
+        st.markdown("Finds the statistically **optimal split** between buying fertilizer now vs. waiting.")
+        with st.expander("ℹ️ How to use this"):
+            st.markdown("""
+**The core question:** Should you buy all your fertilizer today, wait until planting, or split the difference?
+
+**How it works:**
+The optimizer runs 10,000 simulated future price paths and finds the exact buy-now fraction that
+minimizes your *blended* cost — balancing expected savings against worst-case risk.
+
+**Risk tolerance:**
+- **Conservative** — heavily penalizes expensive surprises. Will recommend buying more now to avoid risk.
+- **Balanced** — equal weight on expected cost and downside protection.
+- **Aggressive** — prioritizes the lowest expected cost, accepting more price uncertainty.
+
+**The math (CVaR):** The algorithm minimizes `(1−α)·Expected Cost + α·CVaR₉₀`, where α is your
+risk weight. CVaR₉₀ is the average cost across the worst 10% of simulations — a professional
+risk metric used in commodity trading desks.
+
+**Three-strategy comparison:** Buy All Now (no risk, today's price locked in) vs. the Optimal Split
+(★ recommended) vs. Wait Entirely (full price risk, possible savings or overrun).
+
+**The curve chart** shows the objective value at every possible buy-now fraction. The amber line is
+the mathematical optimum — any other split costs you more in expectation.
+            """)
 
         opt_c1, opt_c2 = st.columns(2)
         with opt_c1:
@@ -935,9 +1130,26 @@ with tab_fertilizer:
         # ── SECTION 5: TIMING DECISION CARDS ──────────────────────────────────
         st.subheader("⚖️ Timing Decision: Buy Now vs. Wait")
         st.markdown(
-            "Side-by-side cost comparison for each timing option using your farm inputs "
-            f"above. Costs shown for your **remaining {remaining_mt:.1f} mt** to purchase."
+            f"Side-by-side cost comparison for your **remaining {remaining_mt:.1f} mt** to purchase."
         )
+        with st.expander("ℹ️ How to read this"):
+            st.markdown("""
+**Three cards, three choices:**
+- **Buy Now** — you pay today's spot price, no uncertainty. This is your baseline.
+- **Wait 30 Days** — you defer to next month. The price range shown is the Monte Carlo P10–P90 band.
+- **Wait 60 Days** — defer two months. Higher uncertainty (wider band), but more time for prices to move.
+
+**Badge colors:**
+- 🔵 **BASELINE** — the reference point (buy now)
+- 🟢 **SAVE X%** — the model forecasts you'd pay less by waiting
+- 🟡 **X% CHANCE HIGHER** — moderate risk the price will rise if you wait
+- 🔴 **X% CHANCE HIGHER** — high probability waiting costs you more
+
+**"Prob cheaper than now"** — the percentage of Monte Carlo simulations where the future price
+ended up *below* today's price. Above 50% means waiting is more likely to save money.
+
+**Your cost range** — P10 (best case) to P90 (worst case) applied to your urea quantity.
+            """)
 
         def _prob_rising(p50, std):
             if std <= 0:
@@ -1027,4 +1239,181 @@ with tab_fertilizer:
             "Prices from Monte Carlo simulation (10,000 paths).  "
             "P10 = optimistic, P50 = median, P90 = pessimistic.  "
             "Probability uses a normal approximation over test-period residuals."
+        )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# TAB 3 — REGIONAL PRICE MAP
+# 3-D globe / ColumnLayer — fertilizer cost exposure by US state
+# ════════════════════════════════════════════════════════════════════════════
+with tab_map:
+
+    if cache is None:
+        st.warning("No forecast data found. Run `python backend/run_pipeline.py` first.")
+    else:
+        sig_map  = cache["signal"]
+        cur_p    = sig_map["currentPrice"]
+        fc_p     = sig_map["forecast_t2"]
+        chg_pct  = (fc_p - cur_p) / cur_p * 100
+        chg_sign = "▲" if chg_pct >= 0 else "▼"
+
+        # ── Header metrics ─────────────────────────────────────────────────
+        st.subheader("🌍 Regional Fertilizer Cost Exposure")
+        st.markdown(
+            "Each spike shows how hard a state would be hit by a fertilizer price move. "
+            "**Drag** to rotate · **scroll** to zoom · **hover** a spike for details."
+        )
+        with st.expander("ℹ️ How to read this map"):
+            st.markdown("""
+**What the spikes represent:**
+Each spike sits at the geographic center of a US state. Its height and color both reflect that
+state's total annual fertilizer exposure — how many metric tons of urea its farmers need to buy.
+
+**How exposure is calculated (USDA 2023 data):**
+- Corn acres × 150 lbs nitrogen/acre
+- Wheat acres × 90 lbs nitrogen/acre
+- Soybeans acres × 60 lbs nitrogen/acre
+- Total nitrogen ÷ 46% (urea N content) ÷ 2,204.6 lbs/mt = **metric tons of urea**
+
+**Color scale:**
+| Color | Meaning |
+|---|---|
+| 🟢 Green | Low exposure — state doesn't grow much of these crops |
+| 🟡 Yellow | Moderate exposure |
+| 🔴 Red | High exposure — a price spike here hits farmers hard in absolute dollar terms |
+
+**Why Iowa and Illinois tower above everything:**
+Iowa has ~12.9 million acres of corn + 9.4 million acres of soybeans. When urea rises $30/mt,
+Iowa farmers collectively face ~$57M in added fertilizer costs. That's why they light up red.
+
+**"60-day cost impact" mode** switches height and color to show the *dollar change* driven
+specifically by the current model forecast — which states gain or lose the most from this
+particular price move.
+
+**Interacting with the map:**
+- Left-click + drag to pan or rotate (3-D mode)
+- Scroll wheel to zoom in/out
+- Hover any spike to see the state name, urea needed, current bill, and forecast impact
+            """)
+
+        hm1, hm2, hm3 = st.columns(3)
+        hm1.metric("Current Urea", f"${cur_p:.0f}/mt")
+        hm2.metric("60-Day Forecast", f"${fc_p:.0f}/mt", delta=f"{chg_pct:+.1f}%")
+        hm3.metric("Signal", sig_map["signal"])
+
+        # ── Build state dataset ────────────────────────────────────────────
+        state_df = build_state_df(cache)
+
+        # ── View controls ──────────────────────────────────────────────────
+        vc1, vc2 = st.columns([2, 2])
+        with vc1:
+            view_mode = st.radio(
+                "View mode",
+                ["🌐 3-D Perspective", "🗺️ Flat map (top-down)"],
+                horizontal=True,
+                key="map_view_mode",
+            )
+        with vc2:
+            color_metric = st.radio(
+                "Color / height by",
+                ["Fertilizer exposure (urea MT)", "60-day cost impact ($M)"],
+                horizontal=True,
+                key="map_color_metric",
+            )
+
+        # Recompute elevation & color if user chooses cost-impact mode
+        if "cost impact" in color_metric:
+            max_val          = state_df["impact_m"].abs().max()
+            norm             = (state_df["impact_m"].abs() / max_val).clip(0, 1)
+            state_df["elevation"] = (norm * 500_000).clip(1000)
+            state_df["color_r"]   = (norm * 255).astype(int)
+            state_df["color_g"]   = (255 - norm * 200).clip(0, 255).astype(int)
+            state_df["color_b"]   = 30
+            state_df["color_a"]   = 210
+
+        layer = pdk.Layer(
+            "ColumnLayer",
+            data=state_df,
+            get_position="[lng, lat]",
+            get_elevation="elevation",
+            elevation_scale=1,
+            radius=55000,
+            get_fill_color="[color_r, color_g, color_b, color_a]",
+            pickable=True,
+            auto_highlight=True,
+            coverage=0.85,
+        )
+
+        if "3-D" in view_mode:
+            view = pdk.ViewState(
+                longitude=-96,
+                latitude=36,
+                zoom=3.2,
+                pitch=55,
+                bearing=-10,
+            )
+        else:
+            view = pdk.ViewState(
+                longitude=-96,
+                latitude=39,
+                zoom=3.6,
+                pitch=0,
+                bearing=0,
+            )
+
+        # CARTO dark-matter style — free, no Mapbox token required
+        DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+
+        deck = pdk.Deck(
+            layers=[layer],
+            initial_view_state=view,
+            map_style=DARK_STYLE,
+            tooltip={
+                "html": "{tooltip}",
+                "style": {
+                    "backgroundColor": "#0f172a",
+                    "color": "#f1f5f9",
+                    "fontSize": "13px",
+                    "padding": "10px 14px",
+                    "borderRadius": "8px",
+                    "border": "1px solid #334155",
+                },
+            },
+        )
+
+        st.pydeck_chart(deck, use_container_width=True, height=600)
+
+        # ── Color legend ───────────────────────────────────────────────────
+        st.markdown("""
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <span style="font-size:0.8rem;color:#64748b;">Low exposure</span>
+            <div style="height:12px;width:200px;background:linear-gradient(to right,
+                #1e7b1e, #b8a010, #ff1e1e);border-radius:4px;"></div>
+            <span style="font-size:0.8rem;color:#64748b;">High exposure</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.divider()
+
+        # ── State rankings table ───────────────────────────────────────────
+        st.subheader("State Rankings — Fertilizer Exposure")
+        table_df = state_df[[
+            "state", "corn_acres", "wheat_acres", "soy_acres",
+            "urea_mt", "current_cost_m", "forecast_cost_m", "impact_m",
+        ]].copy()
+        table_df["urea_mt"]          = table_df["urea_mt"].apply(lambda x: f"{x/1000:,.0f}K mt")
+        table_df["current_cost_m"]   = table_df["current_cost_m"].apply(lambda x: f"${x:.1f}M")
+        table_df["forecast_cost_m"]  = table_df["forecast_cost_m"].apply(lambda x: f"${x:.1f}M")
+        table_df["impact_m"]         = table_df["impact_m"].apply(lambda x: f"{chg_sign}${abs(x):.1f}M")
+        table_df["corn_acres"]       = table_df["corn_acres"].apply(lambda x: f"{x/1e6:.1f}M ac" if x >= 1e6 else f"{x/1e3:.0f}K ac")
+        table_df["wheat_acres"]      = table_df["wheat_acres"].apply(lambda x: f"{x/1e6:.1f}M ac" if x >= 1e6 else f"{x/1e3:.0f}K ac")
+        table_df["soy_acres"]        = table_df["soy_acres"].apply(lambda x: f"{x/1e6:.1f}M ac" if x >= 1e6 else f"{x/1e3:.0f}K ac")
+        table_df.columns = [
+            "State", "Corn", "Wheat", "Soybeans",
+            "Urea Needed", "Current Cost", "60-Day Forecast", f"Impact ({chg_sign})",
+        ]
+        st.dataframe(table_df, use_container_width=True, hide_index=True)
+        st.caption(
+            f"USDA 2023 planted acres. Urea = total N ÷ (46% N content).  "
+            f"Current price: ${cur_p:.0f}/mt → 60-day forecast: ${fc_p:.0f}/mt ({chg_pct:+.1f}%)."
         )
