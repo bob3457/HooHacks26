@@ -121,31 +121,58 @@ st.markdown("""
     [data-testid='stSidebarNav'] { display: none; }
     [data-testid='collapsedControl'] { display: none; }
     section[data-testid='stSidebar'] { display: none; }
-    body, .stApp { background-color: #f9fbf9; }
-    h1, h2, h3 { color: #1a5c2a; }
-    .metric-card {
-        background: white;
-        border: 1.5px solid #c8e6c9;
-        border-radius: 12px;
-        padding: 1.2rem 1.5rem;
+    body, .stApp { background-color: #ffffff; }
+    h1, h2, h3 { color: #1a5c2a; font-family: system-ui, sans-serif; }
+    
+    .banner {
+        background-color: #f0f7f0;
+        border: 1px solid #d4edda;
+        padding: 2.5rem 2rem;
+        margin-bottom: 2rem;
         text-align: center;
     }
-    .metric-label { color: #4caf50; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; }
-    .metric-value { color: #1a5c2a; font-size: 2rem; font-weight: 700; }
-    .advice-card {
-        background: white;
-        border-left: 5px solid #4caf50;
-        border-radius: 8px;
-        padding: 1.2rem 1.5rem;
-        margin-top: 1rem;
+    
+    .metric-card {
+        background: #f9fbf9;
+        border: 1px solid #e0e0e0;
+        border-radius: 0px;
+        padding: 1.8rem 1.5rem;
+        text-align: center;
     }
-    .risk-medium { color: #e67e22; font-weight: 700; }
-    .risk-low    { color: #27ae60; font-weight: 700; }
-    .risk-high   { color: #e74c3c; font-weight: 700; }
+    
+    .metric-label { 
+        color: #666; 
+        font-size: 0.8rem; 
+        font-weight: 500; 
+        text-transform: uppercase; 
+        letter-spacing: 0.5px;
+    }
+    
+    .metric-value { 
+        color: #1a5c2a; 
+        font-size: 2rem; 
+        font-weight: 600;
+        margin-top: 0.5rem;
+    }
+    
+    .advice-card {
+        background: #f9fbf9;
+        border-left: 4px solid #1a5c2a;
+        border-radius: 0px;
+        padding: 1.8rem 1.5rem;
+        margin-top: 1.5rem;
+    }
+    
+    .risk-medium { color: #e67e22; font-weight: 600; }
+    .risk-low    { color: #27ae60; font-weight: 600; }
+    .risk-high   { color: #e74c3c; font-weight: 600; }
+    
     .empty-state {
         text-align: center;
-        padding: 3rem 1rem;
-        color: #888;
+        padding: 4rem 2rem;
+        color: #999;
+        background: #f9fbf9;
+        border: 1px solid #e0e0e0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -154,10 +181,17 @@ init_farm_db()
 email = st.session_state.user_email
 df = get_farmer_crops(email)
 
+# ── Banner ───────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="banner">
+    <h1 style="margin:0 0 0.5rem 0; font-size:2.5rem;">🌾 AgriSignal</h1>
+    <p style="margin:0; color:#666; font-size:1rem;">Fertilizer intelligence for farmers</p>
+</div>
+""", unsafe_allow_html=True)
+
 # ── Header ───────────────────────────────────────────────────────────────────
 col_title, col_signout = st.columns([9, 1])
 with col_title:
-    st.markdown("## 🌾 AgriSignal")
     st.caption(f"Logged in as **{email}**")
 with col_signout:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -204,11 +238,12 @@ with tab_overview:
     if df.empty:
         st.markdown(
             '<div class="empty-state">'
-            '<p style="font-size:1.3rem; font-weight:600;">No farm data yet.</p>'
-            '<p>Use the form above to add your crops and acreage.</p>'
+            '<p style="font-size:1.2rem; font-weight:500; margin-bottom:0.8rem;">No farm data yet</p>'
+            '<p style="color:#999;">Use the form above to add your crops and acreage.</p>'
             '</div>',
             unsafe_allow_html=True,
         )
+        st.markdown("<br><br>", unsafe_allow_html=True)
     else:
         fert = get_fertilizer_totals(df)
         total_acres      = df["acres"].sum()
@@ -231,8 +266,9 @@ with tab_overview:
                 unsafe_allow_html=True,
             )
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
 
         col_chart, col_gap, col_table = st.columns([5, 0.3, 3])
 
@@ -254,17 +290,20 @@ with tab_overview:
             st.markdown("<br>", unsafe_allow_html=True)
             for _, row in df.iterrows():
                 r1, r2 = st.columns([4, 1])
-                r1.markdown(f"**{row['crop_name']}** — {row['acres']:,.0f} acres")
-                if r2.button("Remove", key=f"del_{row['id']}"):
+                r1.markdown(f"**{row['crop_name']}** · {row['acres']:,.0f} acres")
+                if r2.button("Remove", key=f"del_{row['id']}", use_container_width=True):
                     delete_crop(row["id"])
                     st.rerun()
+                st.markdown("")
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # TAB 2 — FERTILIZER COSTS & RISK ASSESSMENT
 # ════════════════════════════════════════════════════════════════════════════
 with tab_fertilizer:
-    st.subheader("Predicted Fertilizer Price (next 12 months)")
+    st.subheader("Predicted Fertilizer Price")
+    st.caption("Next 12 months forecast")
+    st.markdown("<br>", unsafe_allow_html=True)
 
     forecast_df = get_fertilizer_price_forecast()
 
@@ -273,8 +312,8 @@ with tab_fertilizer:
         x=forecast_df["month"],
         y=forecast_df["predicted_price_per_ton"],
         mode="lines+markers",
-        line=dict(color="#4caf50", width=2.5),
-        marker=dict(size=7, color="#1a5c2a"),
+        line=dict(color="#1a5c2a", width=2),
+        marker=dict(size=6, color="#1a5c2a"),
         name="Predicted $/ton",
         hovertemplate="%{x}<br><b>$%{y}/ton</b><extra></extra>",
     ))
@@ -282,14 +321,20 @@ with tab_fertilizer:
         xaxis_title="Month",
         yaxis_title="Price per Ton (USD)",
         yaxis=dict(tickprefix="$"),
-        plot_bgcolor="white",
+        plot_bgcolor="#f9fbf9",
         paper_bgcolor="white",
         margin=dict(t=20, b=40, l=60, r=20),
+        font=dict(family="system-ui, sans-serif"),
     )
     st.plotly_chart(fig2, use_container_width=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
     st.subheader("Buying Advice")
+    st.markdown("<br>", unsafe_allow_html=True)
 
     advice = get_buy_advice()
     risk   = advice["risk_level"]
@@ -297,10 +342,10 @@ with tab_fertilizer:
 
     st.markdown(
         f'<div class="advice-card">'
-        f'<p style="font-size:1.1rem; font-weight:700; color:#1a5c2a; margin-bottom:0.4rem;">'
-        f'Recommendation: {advice["recommendation"]}</p>'
-        f'<p>Risk Level: <span class="{risk_class}">{risk}</span></p>'
-        f'<p style="color:#555; margin-top:0.5rem;">{advice["reasoning"]}</p>'
+        f'<p style="font-size:1rem; font-weight:600; color:#1a5c2a; margin:0 0 0.8rem 0;">'
+        f'📋 {advice["recommendation"]}</p>'
+        f'<p style="margin:0 0 0.6rem 0;">Risk Level: <span class="{risk_class}">{risk}</span></p>'
+        f'<p style="color:#666; margin:0; line-height:1.5;">{advice["reasoning"]}</p>'
         f'</div>',
         unsafe_allow_html=True,
     )
