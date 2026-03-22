@@ -659,6 +659,23 @@ with tab_fertilizer:
 
         # ── SECTION 1: BUY SIGNAL ─────────────────────────────────────────────
         st.subheader("📡 Buy Signal")
+        with st.expander("ℹ️ How to read this"):
+            st.markdown("""
+**Why natural gas?** Urea (the most common nitrogen fertilizer) is manufactured from natural gas.
+When nat gas prices rise, fertilizer factories pay more, and that cost passes to farmers 4–8 weeks later.
+This model exploits that lag to give you advance warning.
+
+**The four signals:**
+| Signal | Meaning |
+|---|---|
+| 🔴 **BUY NOW** | Prices forecast to rise >8% in 60 days with high confidence — lock in supply today |
+| 🟡 **CONSIDER BUYING** | Moderate upward pressure — partial pre-purchase recommended |
+| 🟢 **WAIT** | Prices forecast to fall — buying now would cost more than waiting |
+| ⚫ **NEUTRAL** | No strong signal — forecast is flat and probability is evenly split |
+
+**Confidence** is the Monte Carlo probability that price will be higher in 60 days.
+**Best month** is whichever of the 3 forecast months has the lowest median simulated price.
+            """)
 
         m1, m2, m3, m4 = st.columns(4)
         pct_chg = (sig["forecast_t2"] - sig["currentPrice"]) / sig["currentPrice"] * 100
@@ -697,6 +714,21 @@ with tab_fertilizer:
 
         # ── SECTION 2: PRICE FORECAST CHART ───────────────────────────────────
         st.subheader("📈 Urea Price History + XGBoost Forecast")
+        with st.expander("ℹ️ How to read this"):
+            st.markdown("""
+**Blue line** — actual urea spot prices ($/metric ton) from Jan 2018 to the most recent data month.
+
+**Red dashed line** — the XGBoost machine-learning model's point forecast for the next 3 months.
+XGBoost learns patterns between natural gas prices, storage levels, momentum, and seasonality to
+predict where urea prices are heading.
+
+**Red shaded band** — the 80% Monte Carlo confidence interval. The model ran 10,000 simulated futures
+and this band captures the middle 80% of outcomes. If the band is wide, uncertainty is high.
+If it's narrow, the model is more confident.
+
+**Nat Gas overlay (toggle)** — shows US natural gas spot price on the right axis (green line).
+Watch how nat gas spikes tend to precede urea spikes by several weeks — that's the signal this model captures.
+            """)
 
         show_ng = st.toggle("Overlay Natural Gas prices (secondary axis)", value=False)
 
@@ -776,11 +808,24 @@ with tab_fertilizer:
 
         # ── SECTION 3: MONTE CARLO DISTRIBUTION ───────────────────────────────
         st.subheader("🎲 Monte Carlo Price Distribution — 60-Day Horizon")
-        st.markdown(
-            "Each bar represents how often a simulated price landed in that range across "
-            "**10,000 paths**. Draws are taken from the XGBoost residual distribution "
-            "captured during walk-forward cross-validation."
-        )
+        st.markdown("Each bar shows how often a simulated price landed in that range across **10,000 paths**.")
+        with st.expander("ℹ️ How to read this"):
+            st.markdown("""
+**What is Monte Carlo simulation?**
+Instead of giving you one forecast number, we run 10,000 "what-if" scenarios by adding realistic
+random variation (drawn from the model's historical error distribution) to the XGBoost prediction.
+The result is a full picture of the range of possible outcomes, not just a point estimate.
+
+**The three lines:**
+| Line | Meaning |
+|---|---|
+| 🟢 **P10 — Optimistic** | Only 10% of simulations ended up *below* this price. A best-case scenario. |
+| 🟡 **P50 — Median** | Half of simulations were above, half below. The most likely single outcome. |
+| 🔴 **P90 — Pessimistic** | Only 10% of simulations ended up *above* this price. A worst-case budget number. |
+
+**How to use this as a farmer:** The P90 is your "disaster planning" number — the price you'd pay
+if things go badly. Budget fertilizer costs using P90, hope for P10.
+            """)
 
         fig_mc = go.Figure()
         fig_mc.add_trace(go.Histogram(
@@ -823,10 +868,22 @@ with tab_fertilizer:
 
         # ── SECTION 4: EXPOSURE CALCULATOR ────────────────────────────────────
         st.subheader("🧮 Fertilizer Cost Exposure Calculator")
-        st.markdown(
-            "Enter your farm details to project input costs at each forecast horizon "
-            "using the XGBoost price forecast and Monte Carlo uncertainty bands."
-        )
+        st.markdown("Project your actual fertilizer bill at each forecast horizon based on your crop mix and acreage.")
+        with st.expander("ℹ️ How to use this"):
+            st.markdown("""
+**Inputs:**
+- **Crop type** — different crops need different amounts of nitrogen (corn is the most intensive at 150 lbs N/acre)
+- **Acreage** — pre-filled from your farm profile if you've added crops in the Overview tab
+- **Pre-purchased %** — if you've already locked in some supply, slide this up to remove it from the calculation
+
+**The table shows three scenarios for each of the next 3 months:**
+- **Forecast Price** — XGBoost's point estimate (median of 10,000 simulations)
+- **P10 Low** — your cost if prices land in the optimistic 10th percentile
+- **P90 High** — your cost if prices land in the pessimistic 90th percentile
+
+**The math:** Nitrogen needed (lbs) ÷ 46% N content ÷ 2,204.6 lbs/mt = metric tons of urea required.
+Your cost = urea needed × forecast price.
+            """)
 
         # Pre-populate acreage from user's farm DB if available
         default_acres = float(df["acres"].sum()) if not df.empty else 500.0
@@ -871,11 +928,30 @@ with tab_fertilizer:
 
         # ── SECTION 4b: PRE-PURCHASE OPTIMIZER (CVaR) ─────────────────────────
         st.subheader("🎯 Pre-Purchase Optimizer")
-        st.markdown(
-            "Computes the statistically **optimal fraction to buy now vs. wait** "
-            "given your planting timeline and risk tolerance — minimising expected cost "
-            "while controlling downside exposure via CVaR."
-        )
+        st.markdown("Finds the statistically **optimal split** between buying fertilizer now vs. waiting.")
+        with st.expander("ℹ️ How to use this"):
+            st.markdown("""
+**The core question:** Should you buy all your fertilizer today, wait until planting, or split the difference?
+
+**How it works:**
+The optimizer runs 10,000 simulated future price paths and finds the exact buy-now fraction that
+minimizes your *blended* cost — balancing expected savings against worst-case risk.
+
+**Risk tolerance:**
+- **Conservative** — heavily penalizes expensive surprises. Will recommend buying more now to avoid risk.
+- **Balanced** — equal weight on expected cost and downside protection.
+- **Aggressive** — prioritizes the lowest expected cost, accepting more price uncertainty.
+
+**The math (CVaR):** The algorithm minimizes `(1−α)·Expected Cost + α·CVaR₉₀`, where α is your
+risk weight. CVaR₉₀ is the average cost across the worst 10% of simulations — a professional
+risk metric used in commodity trading desks.
+
+**Three-strategy comparison:** Buy All Now (no risk, today's price locked in) vs. the Optimal Split
+(★ recommended) vs. Wait Entirely (full price risk, possible savings or overrun).
+
+**The curve chart** shows the objective value at every possible buy-now fraction. The amber line is
+the mathematical optimum — any other split costs you more in expectation.
+            """)
 
         opt_c1, opt_c2 = st.columns(2)
         with opt_c1:
@@ -999,9 +1075,26 @@ with tab_fertilizer:
         # ── SECTION 5: TIMING DECISION CARDS ──────────────────────────────────
         st.subheader("⚖️ Timing Decision: Buy Now vs. Wait")
         st.markdown(
-            "Side-by-side cost comparison for each timing option using your farm inputs "
-            f"above. Costs shown for your **remaining {remaining_mt:.1f} mt** to purchase."
+            f"Side-by-side cost comparison for your **remaining {remaining_mt:.1f} mt** to purchase."
         )
+        with st.expander("ℹ️ How to read this"):
+            st.markdown("""
+**Three cards, three choices:**
+- **Buy Now** — you pay today's spot price, no uncertainty. This is your baseline.
+- **Wait 30 Days** — you defer to next month. The price range shown is the Monte Carlo P10–P90 band.
+- **Wait 60 Days** — defer two months. Higher uncertainty (wider band), but more time for prices to move.
+
+**Badge colors:**
+- 🔵 **BASELINE** — the reference point (buy now)
+- 🟢 **SAVE X%** — the model forecasts you'd pay less by waiting
+- 🟡 **X% CHANCE HIGHER** — moderate risk the price will rise if you wait
+- 🔴 **X% CHANCE HIGHER** — high probability waiting costs you more
+
+**"Prob cheaper than now"** — the percentage of Monte Carlo simulations where the future price
+ended up *below* today's price. Above 50% means waiting is more likely to save money.
+
+**Your cost range** — P10 (best case) to P90 (worst case) applied to your urea quantity.
+            """)
 
         def _prob_rising(p50, std):
             if std <= 0:
@@ -1112,10 +1205,41 @@ with tab_map:
         # ── Header metrics ─────────────────────────────────────────────────
         st.subheader("🌍 Regional Fertilizer Cost Exposure")
         st.markdown(
-            "Each spike shows **how much urea a state needs annually** based on USDA planted "
-            "acres (corn · wheat · soy). Height = total exposure. Color = cost intensity. "
-            "Drag to rotate · scroll to zoom · hover for details."
+            "Each spike shows how hard a state would be hit by a fertilizer price move. "
+            "**Drag** to rotate · **scroll** to zoom · **hover** a spike for details."
         )
+        with st.expander("ℹ️ How to read this map"):
+            st.markdown("""
+**What the spikes represent:**
+Each spike sits at the geographic center of a US state. Its height and color both reflect that
+state's total annual fertilizer exposure — how many metric tons of urea its farmers need to buy.
+
+**How exposure is calculated (USDA 2023 data):**
+- Corn acres × 150 lbs nitrogen/acre
+- Wheat acres × 90 lbs nitrogen/acre
+- Soybeans acres × 60 lbs nitrogen/acre
+- Total nitrogen ÷ 46% (urea N content) ÷ 2,204.6 lbs/mt = **metric tons of urea**
+
+**Color scale:**
+| Color | Meaning |
+|---|---|
+| 🟢 Green | Low exposure — state doesn't grow much of these crops |
+| 🟡 Yellow | Moderate exposure |
+| 🔴 Red | High exposure — a price spike here hits farmers hard in absolute dollar terms |
+
+**Why Iowa and Illinois tower above everything:**
+Iowa has ~12.9 million acres of corn + 9.4 million acres of soybeans. When urea rises $30/mt,
+Iowa farmers collectively face ~$57M in added fertilizer costs. That's why they light up red.
+
+**"60-day cost impact" mode** switches height and color to show the *dollar change* driven
+specifically by the current model forecast — which states gain or lose the most from this
+particular price move.
+
+**Interacting with the map:**
+- Left-click + drag to pan or rotate (3-D mode)
+- Scroll wheel to zoom in/out
+- Hover any spike to see the state name, urea needed, current bill, and forecast impact
+            """)
 
         hm1, hm2, hm3 = st.columns(3)
         hm1.metric("Current Urea", f"${cur_p:.0f}/mt")
