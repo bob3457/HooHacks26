@@ -124,7 +124,8 @@ def load_fertilizer_prices() -> pd.DataFrame:
     World Bank Pink Sheet — Urea and DAP monthly prices ($/mt).
     Returns DataFrame with columns ['urea', 'dap'], DatetimeIndex (month-start).
     """
-    path = os.path.join(DATA, "raw", "CMO-Historical-Data-Monthly-2026.xlsx")
+    path_2026 = os.path.join(DATA, "raw", "CMO-Historical-Data-Monthly-2026.xlsx")
+    path      = path_2026 if os.path.exists(path_2026) else os.path.join(DATA, "raw", "CMO-Historical-Data-Monthly.xlsx")
     raw = pd.read_excel(path, sheet_name="Monthly Prices", header=4, index_col=0)
     # Row 0 after the header is the units row — drop it
     raw = raw.iloc[1:]
