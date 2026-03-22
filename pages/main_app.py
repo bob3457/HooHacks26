@@ -355,6 +355,8 @@ st.markdown(f"""
     [data-testid='collapsedControl'] {{ display: none; }}
     section[data-testid='stSidebar'] {{ display: none; }}
     header[data-testid='stHeader'] {{ display: none; }}
+    [data-testid='stToolbar'] {{ display: none; }}
+    #MainMenu {{ display: none; }}
     body, .stApp {{ background-color: #ffffff; }}
     h1, h2, h3 {{ color: #1a5c2a; font-family: system-ui, sans-serif; }}
 
