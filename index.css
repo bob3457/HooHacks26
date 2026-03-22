@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 140 4% 98%;
+    --foreground: 140 8% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 140 8% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 140 8% 10%;
+
+    --primary: 133 48% 33%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 140 3% 95%;
+    --secondary-foreground: 140 8% 10%;
+
+    --muted: 140 4% 94%;
+    --muted-foreground: 140 3% 40%;
+
+    --accent: 50 100% 50%;
+    --accent-foreground: 140 8% 10%;
+
+    --destructive: 4 80% 49%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 140 4% 89%;
+    --input: 140 4% 89%;
+    --ring: 133 48% 33%;
+
+    --radius: 2px;
+
+    --sidebar-bg: 140 8% 7%;
+    --sidebar-fg: 140 4% 80%;
+    --sidebar-active: 133 48% 33%;
+    --sidebar-hover: 140 6% 12%;
+    --sidebar-border: 140 6% 16%;
+
+    --surface-alt: 140 4% 94%;
+    --signal-warning: 30 95% 55%;
+    --signal-success: 133 48% 33%;
+    --signal-danger: 4 80% 49%;
+
+    --chart-green: 133 48% 33%;
+    --chart-green-light: 133 48% 90%;
+    --chart-amber: 40 95% 55%;
+    --chart-red: 4 80% 49%;
+
+    --sidebar-background: 140 8% 7%;
+    --sidebar-foreground: 140 4% 80%;
+    --sidebar-primary: 133 48% 33%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 140 6% 12%;
+    --sidebar-accent-foreground: 140 4% 90%;
+    --sidebar-ring: 133 48% 33%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+  }
+}
+
+@layer utilities {
+  .font-mono-data {
+    font-family: 'IBM Plex Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .label-caps {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .signal-card {
+    @apply border border-primary/20 bg-card p-4 transition-colors duration-150;
+  }
+
+  .signal-card:hover {
+    border-color: hsl(var(--primary));
+  }
+}

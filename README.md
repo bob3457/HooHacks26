@@ -22,13 +22,11 @@ Only needs to be re-run if you change training data or model code.
 .\.venv\Scripts\python backend/run_pipeline.py
 ```
 
-**Step 3 — Start the web server:**
-```powershell
-node backend/server.js
-```
-
 Open http://localhost:8000 in your browser.
 
+## Running the UI
+    inside the venv, call streamlit run login.py
+    
 ## Notes
 
 - Always use `.\.venv\Scripts\python` instead of `python` — the venv contains all required packages (xgboost, pandas, etc.)
