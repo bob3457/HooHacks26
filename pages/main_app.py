@@ -431,7 +431,7 @@ st.markdown(f"""
     }}
     }}
     .agri-banner h1 {{
-        color: #fff;
+        color: #bbf7d0;
         font-size: 1.6rem;
         font-weight: 800;
         margin: 0 0 4px 0;
@@ -453,18 +453,6 @@ st.markdown(f"""
         text-align: center !important;
     }}
 
-    /* Color the 3 overview columns via CSS nth-child */
-    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) > div {{
-        background: #f0fdf4;
-        border-radius: 12px;
-        padding: 8px 12px;
-    }}
-    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3) > div {{
-        background: #fff;
-        border: 1.5px solid #e8f4e8;
-        border-radius: 12px;
-        padding: 8px 12px;
-    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -502,7 +490,7 @@ with col_signout:
 # ── Banner ───────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="agri-banner">
-  <h1>🌾 foreGASt</h1>
+  <h1 style="color:#bbf7d0;">🌾 foreGASt</h1>
   <p>Fertilizer intelligence for American farmers. Real prices, real risk, real decisions.</p>
 </div>
 """, unsafe_allow_html=True)
