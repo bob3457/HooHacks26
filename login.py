@@ -3,6 +3,7 @@ import sqlite3
 import re
 import os
 import base64
+import bcrypt
 
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")
@@ -24,10 +25,23 @@ def get_image_base64(filename):
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL)"
+        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT)"
     )
+    # Add password_hash column if it doesn't exist
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.commit()
     conn.close()
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 
 def email_exists(email: str) -> bool:
@@ -37,11 +51,31 @@ def email_exists(email: str) -> bool:
     return row is not None
 
 
+def get_password_hash(email: str) -> str:
+    conn = sqlite3.connect(DB_PATH)
+    row = conn.execute("SELECT password_hash FROM users WHERE email = ?", (email,)).fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
 def register_email(email: str):
     conn = sqlite3.connect(DB_PATH)
     conn.execute("INSERT OR IGNORE INTO users (email) VALUES (?)", (email,))
     conn.commit()
     conn.close()
+
+
+def register_user(email: str, password: str):
+    hashed = hash_password(password)
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("INSERT INTO users (email, password_hash) VALUES (?, ?)", (email, hashed))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False  # Email already exists
+    finally:
+        conn.close()
 
 
 def is_valid_email(email: str) -> bool:
@@ -170,9 +204,17 @@ else:
         if prefill and "reg_email" not in st.session_state:
             st.session_state["reg_email"] = prefill
         new_email = st.text_input("Email address", key="reg_email", placeholder="you@example.com")
+        new_password = st.text_input("Password", type="password", key="reg_password")
+        confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm")
         if st.button("Create Account", key="btn_register"):
             if not new_email.strip():
                 st.warning("Please enter your email.")
+            elif not new_password.strip():
+                st.warning("Please enter a password.")
+            elif not confirm_password.strip():
+                st.warning("Please confirm your password.")
+            elif new_password.strip() != confirm_password.strip():
+                st.warning("Passwords do not match.")
             elif not is_valid_email(new_email.strip()):
                 st.warning("Please enter a valid email address.")
             elif email_exists(new_email.strip().lower()):
@@ -180,18 +222,23 @@ else:
                 st.session_state.register_prefill = False
                 st.rerun()
             else:
-                register_email(new_email.strip().lower())
-                st.session_state.logged_in = True
-                st.session_state.user_email = new_email.strip().lower()
-                st.session_state.register_prefill = False
-                st.switch_page("pages/main_app.py")
+                if register_user(new_email.strip().lower(), new_password.strip()):
+                    st.session_state.logged_in = True
+                    st.session_state.user_email = new_email.strip().lower()
+                    st.session_state.register_prefill = False
+                    st.switch_page("pages/main_app.py")
+                else:
+                    st.error("Failed to create account. Please try again.")
         st.markdown('<p class="auth-footer">Already have an account?<a href="?action=login" target="_self">Sign in</a></p>', unsafe_allow_html=True)
     else:
         # ── Sign In form ───────────────────────────────────────────────────
         email = st.text_input("Email address", key="login_email", placeholder="you@example.com")
+        password = st.text_input("Password", type="password", key="login_password")
         if st.button("Sign In", key="btn_login"):
             if not email.strip():
                 st.warning("Please enter your email.")
+            elif not password.strip():
+                st.warning("Please enter your password.")
             elif not is_valid_email(email.strip()):
                 st.warning("Please enter a valid email address.")
             elif not email_exists(email.strip().lower()):
@@ -199,8 +246,12 @@ else:
                 st.session_state["_reg_prefill_email"] = email.strip().lower()
                 st.rerun()
             else:
-                st.session_state.logged_in = True
-                st.session_state.user_email = email.strip().lower()
-                st.switch_page("pages/main_app.py")
-        st.markdown('<p class="auth-footer">Don\'t have an account?<a href="?action=register" target="_self">Register</a></p>', unsafe_allow_html=True)
+                hashed = get_password_hash(email.strip().lower())
+                if hashed and verify_password(password.strip(), hashed):
+                    st.session_state.logged_in = True
+                    st.session_state.user_email = email.strip().lower()
+                    st.switch_page("pages/main_app.py")
+                else:
+                    st.error("Incorrect password.")
+        st.markdown('<p class="auth-footer">Don\'t have an account?<a href="?action=register" target="_self">Create one</a></p>', unsafe_allow_html=True)
     
