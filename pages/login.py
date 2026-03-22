@@ -8,9 +8,10 @@ import secrets
 import time
 
 
-DB_PATH    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.db")
-IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
-SESSION_TTL = 60 * 60 * 24 * 30   # 30 days
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(_ROOT, "users.db")
+IMAGES_DIR = os.path.join(_ROOT, "images")
+SESSION_TTL = 60 * 60 * 24 * 7  # 7 days in seconds
 
 
 def get_image_base64(filename):
