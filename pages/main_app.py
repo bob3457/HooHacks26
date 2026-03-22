@@ -120,6 +120,7 @@ st.markdown("""
 <style>
     [data-testid='stSidebarNav'] { display: none; }
     [data-testid='collapsedControl'] { display: none; }
+    section[data-testid='stSidebar'] { display: none; }
     body, .stApp { background-color: #f9fbf9; }
     h1, h2, h3 { color: #1a5c2a; }
     .metric-card {

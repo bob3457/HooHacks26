@@ -21,11 +21,6 @@ Fertilizer price intelligence for farmers — powered by natural gas market data
 .\.venv\Scripts\python backend/run_pipeline.py
 ```
 
-**Step 3 — Start the web server:**
-```powershell
-node backend/server.js
-```
-
 Open http://localhost:8000 in your browser.
 
 ## Notes

@@ -37,7 +37,7 @@ init_db()
 
 st.set_page_config(page_title="AgriSignal", page_icon="🌱", layout="centered", initial_sidebar_state="collapsed")
 
-st.markdown("<style>[data-testid='stSidebarNav'] { display: none; } [data-testid='collapsedControl'] { display: none; }</style>", unsafe_allow_html=True)
+st.markdown("<style>[data-testid='stSidebarNav'] { display: none; } [data-testid='collapsedControl'] { display: none; } section[data-testid='stSidebar'] { display: none; }</style>", unsafe_allow_html=True)
 
 st.markdown(
     """
@@ -134,3 +134,4 @@ else:
             else:
                 register_email(new_email.strip().lower())
                 st.success("Account created! You can now sign in.")
+    
