@@ -27,11 +27,13 @@ def init_db():
     conn.execute(
         "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT)"
     )
-    # Add password_hash column if it doesn't exist
+    # Add password_hash column if it doesn't exist (migration from old schema)
     try:
         conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
     except sqlite3.OperationalError:
         pass  # Column already exists
+    # Remove legacy accounts that have no password — they can re-register
+    conn.execute("DELETE FROM users WHERE password_hash IS NULL")
     conn.commit()
     conn.close()
 
@@ -247,7 +249,9 @@ else:
                 st.rerun()
             else:
                 hashed = get_password_hash(email.strip().lower())
-                if hashed and verify_password(password.strip(), hashed):
+                if not hashed:
+                    st.error("No password set for this account. Please create a new account.")
+                elif verify_password(password.strip(), hashed):
                     st.session_state.logged_in = True
                     st.session_state.user_email = email.strip().lower()
                     st.switch_page("pages/main_app.py")
