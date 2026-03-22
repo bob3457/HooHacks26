@@ -106,6 +106,21 @@ st.markdown(
             border-top: 1px solid #c8e6c9;
             margin: 1.5rem 0;
         }}
+        .auth-footer {{
+            text-align: center;
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 1rem;
+        }}
+        .auth-footer a {{
+            color: #2e7d32;
+            font-weight: 700;
+            text-decoration: none;
+            margin-left: 0.25rem;
+        }}
+        .auth-footer a:hover {{
+            text-decoration: underline;
+        }}
         .logo-area {{
             text-align: center;
             margin-bottom: 1.5rem;
@@ -134,23 +149,26 @@ else:
         unsafe_allow_html=True,
     )
 
-    tab_login, tab_register = st.tabs(["Sign In", "Register"])
+    if "register_prefill" not in st.session_state:
+        st.session_state.register_prefill = False
 
-    with tab_login:
-        email = st.text_input("Email address", key="login_email", placeholder="you@example.com")
-        if st.button("Sign In", key="btn_login"):
-            if not email.strip():
-                st.warning("Please enter your email.")
-            elif not is_valid_email(email.strip()):
-                st.warning("Please enter a valid email address.")
-            elif not email_exists(email.strip().lower()):
-                st.error("No account found with that email. Please register first.")
-            else:
-                st.session_state.logged_in = True
-                st.session_state.user_email = email.strip().lower()
-                st.switch_page("pages/main_app.py")
+    # Handle inline link clicks via query params
+    _action = st.query_params.get("action", "")
+    if _action == "register":
+        st.query_params.clear()
+        st.session_state.register_prefill = True
+        st.rerun()
+    elif _action == "login":
+        st.query_params.clear()
+        st.session_state.register_prefill = False
+        st.rerun()
 
-    with tab_register:
+    if st.session_state.register_prefill:
+        # ── Register form ──────────────────────────────────────────────────
+        st.markdown("<p style='text-align:center; font-size:1.05rem; font-weight:600;'>Create an account</p>", unsafe_allow_html=True)
+        prefill = st.session_state.pop("_reg_prefill_email", "")
+        if prefill and "reg_email" not in st.session_state:
+            st.session_state["reg_email"] = prefill
         new_email = st.text_input("Email address", key="reg_email", placeholder="you@example.com")
         if st.button("Create Account", key="btn_register"):
             if not new_email.strip():
@@ -158,8 +176,31 @@ else:
             elif not is_valid_email(new_email.strip()):
                 st.warning("Please enter a valid email address.")
             elif email_exists(new_email.strip().lower()):
-                st.info("An account with this email already exists. Please sign in.")
+                st.info("An account with this email already exists.")
+                st.session_state.register_prefill = False
+                st.rerun()
             else:
                 register_email(new_email.strip().lower())
-                st.success("Account created! You can now sign in.")
+                st.session_state.logged_in = True
+                st.session_state.user_email = new_email.strip().lower()
+                st.session_state.register_prefill = False
+                st.switch_page("pages/main_app.py")
+        st.markdown('<p class="auth-footer">Already have an account?<a href="?action=login" target="_self">Sign in</a></p>', unsafe_allow_html=True)
+    else:
+        # ── Sign In form ───────────────────────────────────────────────────
+        email = st.text_input("Email address", key="login_email", placeholder="you@example.com")
+        if st.button("Sign In", key="btn_login"):
+            if not email.strip():
+                st.warning("Please enter your email.")
+            elif not is_valid_email(email.strip()):
+                st.warning("Please enter a valid email address.")
+            elif not email_exists(email.strip().lower()):
+                st.session_state.register_prefill = True
+                st.session_state["_reg_prefill_email"] = email.strip().lower()
+                st.rerun()
+            else:
+                st.session_state.logged_in = True
+                st.session_state.user_email = email.strip().lower()
+                st.switch_page("pages/main_app.py")
+        st.markdown('<p class="auth-footer">Don\'t have an account?<a href="?action=register" target="_self">Register</a></p>', unsafe_allow_html=True)
     
