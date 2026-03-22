@@ -9,6 +9,7 @@ import os
 import json
 import numpy as np
 from scipy.stats import norm as _norm
+import pydeck as pdk
 
 # ── Fertilizer constants (nitrogen intensity per crop) ────────────────────────
 N_INTENSITY_LBS_PER_ACRE = {
@@ -17,6 +18,42 @@ N_INTENSITY_LBS_PER_ACRE = {
 }
 UREA_N_CONTENT = 0.46   # urea is 46% nitrogen by weight
 LBS_PER_MT     = 2204.6 # pounds per metric ton
+
+# USDA 2023 planted acres by state (thousands of acres)
+# (lat, lng, corn_k, wheat_k, soy_k)
+_STATE_AG = {
+    "Iowa":           (42.00, -93.50, 12900,     0,  9400),
+    "Illinois":       (40.00, -89.00, 10800,   500, 10100),
+    "Nebraska":       (41.50, -99.90, 10300,  1400,  5500),
+    "Minnesota":      (46.40, -94.30,  8100,  1600,  7500),
+    "Indiana":        (40.30, -86.10,  5400,   500,  5800),
+    "South Dakota":   (44.30,-100.30,  5200,  1600,  4300),
+    "Kansas":         (38.50, -98.40,  4400,  7800,  5000),
+    "Ohio":           (40.40, -82.70,  3700,   500,  4900),
+    "Wisconsin":      (44.50, -89.50,  3600,   100,  1900),
+    "Missouri":       (38.30, -92.40,  3100,   600,  5400),
+    "North Dakota":   (47.50,-100.50,  2600,  5500,  5900),
+    "Michigan":       (44.30, -84.50,  2300,   400,  2300),
+    "Texas":          (31.40, -99.30,  1900,  5000,   100),
+    "Colorado":       (39.00,-105.50,  1500,  2500,   400),
+    "Kentucky":       (37.80, -84.90,  1300,   400,  1600),
+    "Oklahoma":       (35.60, -97.50,   400,  4500,   700),
+    "Montana":        (46.90,-110.40,   200,  4500,   100),
+    "North Carolina": (35.50, -79.30,   900,   100,  1100),
+    "Arkansas":       (34.80, -92.20,   800,   200,  3000),
+    "Tennessee":      (35.80, -86.50,   800,   200,  1500),
+    "Pennsylvania":   (41.20, -77.20,  1100,   200,   700),
+    "New York":       (42.50, -76.00,   800,   200,   300),
+    "Mississippi":    (32.70, -89.70,   400,   100,  2300),
+    "Washington":     (47.40,-120.40,   100,  2100,   100),
+    "Virginia":       (37.40, -79.00,   400,   200,   600),
+    "Georgia":        (32.20, -83.40,   500,   300,   500),
+    "Maryland":       (39.00, -76.80,   500,   200,   300),
+    "Idaho":          (44.20,-114.50,   100,  1500,   100),
+    "Wyoming":        (43.00,-107.50,   100,   500,   100),
+    "California":     (37.00,-119.50,   200,   700,   100),
+    "Delaware":       (39.00, -75.50,   200,   100,   200),
+}
 
 # ── Auth guard ───────────────────────────────────────────────────────────────
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -218,6 +255,68 @@ def load_cache():
         return None
 
 
+# ── State fertilizer exposure builder ────────────────────────────────────────
+def build_state_df(cache: dict) -> pd.DataFrame:
+    """
+    Returns a DataFrame with one row per state containing:
+      urea_mt         — total urea metric tons needed annually
+      current_cost_m  — fertilizer bill at current price ($M)
+      forecast_cost_m — fertilizer bill at t2 forecast price ($M)
+      impact_m        — cost change vs. today ($M, positive = more expensive)
+      elevation       — column height in metres for PyDeck (normalised, max 500 km)
+      color           — RGBA list for PyDeck heat gradient
+      tooltip         — HTML tooltip string
+    """
+    sig           = cache["signal"]
+    current_price = sig["currentPrice"]
+    forecast_t2   = sig["forecast_t2"]
+    price_chg_pct = (forecast_t2 - current_price) / current_price * 100
+
+    rows = []
+    for state, (lat, lng, corn_k, wheat_k, soy_k) in _STATE_AG.items():
+        n_lbs     = corn_k * 1000 * 150 + wheat_k * 1000 * 90 + soy_k * 1000 * 60
+        urea_mt   = n_lbs / (UREA_N_CONTENT * LBS_PER_MT)
+        cur_cost  = urea_mt * current_price / 1e6
+        fc_cost   = urea_mt * forecast_t2   / 1e6
+        impact    = fc_cost - cur_cost
+        rows.append({
+            "state":          state,
+            "lat":            lat,
+            "lng":            lng,
+            "corn_acres":     corn_k * 1000,
+            "wheat_acres":    wheat_k * 1000,
+            "soy_acres":      soy_k  * 1000,
+            "urea_mt":        urea_mt,
+            "current_cost_m": cur_cost,
+            "forecast_cost_m":fc_cost,
+            "impact_m":       impact,
+        })
+
+    df = pd.DataFrame(rows)
+
+    # Elevation: normalise urea_mt so the tallest state = 500 km
+    max_mt        = df["urea_mt"].max()
+    df["elevation"] = (df["urea_mt"] / max_mt) * 500_000
+
+    # Heat color: green (low exposure) → yellow → red (high exposure)
+    intensity        = df["urea_mt"] / max_mt          # 0-1
+    df["color_r"]    = (intensity * 255).astype(int)
+    df["color_g"]    = (255 - intensity * 200).clip(0, 255).astype(int)
+    df["color_b"]    = 30
+    df["color_a"]    = 210
+
+    sign = "▲" if price_chg_pct >= 0 else "▼"
+    df["tooltip"] = df.apply(lambda r: (
+        f"<b>{r['state']}</b><br>"
+        f"Urea needed: {r['urea_mt']/1000:,.0f}K mt/yr<br>"
+        f"Current bill: ${r['current_cost_m']:.1f}M<br>"
+        f"60-day forecast: ${r['forecast_cost_m']:.1f}M<br>"
+        f"Impact: {sign}${abs(r['impact_m']):.1f}M ({price_chg_pct:+.1f}%)"
+    ), axis=1)
+
+    return df.sort_values("urea_mt", ascending=False)
+
+
 # ── Page setup ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Gas Forecast — Dashboard", page_icon="🌾", layout="wide", initial_sidebar_state="collapsed")
 
@@ -344,7 +443,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
-tab_overview, tab_fertilizer = st.tabs(["Overview", "Fertilizer Costs & Risk Assessment"])
+tab_overview, tab_fertilizer, tab_map = st.tabs(["Overview", "Fertilizer Costs & Risk Assessment", "🌍 Regional Price Map"])
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -972,4 +1071,150 @@ with tab_fertilizer:
             "Prices from Monte Carlo simulation (10,000 paths).  "
             "P10 = optimistic, P50 = median, P90 = pessimistic.  "
             "Probability uses a normal approximation over test-period residuals."
+        )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# TAB 3 — REGIONAL PRICE MAP
+# 3-D globe / ColumnLayer — fertilizer cost exposure by US state
+# ════════════════════════════════════════════════════════════════════════════
+with tab_map:
+
+    if cache is None:
+        st.warning("No forecast data found. Run `python backend/run_pipeline.py` first.")
+    else:
+        sig_map  = cache["signal"]
+        cur_p    = sig_map["currentPrice"]
+        fc_p     = sig_map["forecast_t2"]
+        chg_pct  = (fc_p - cur_p) / cur_p * 100
+        chg_sign = "▲" if chg_pct >= 0 else "▼"
+
+        # ── Header metrics ─────────────────────────────────────────────────
+        st.subheader("🌍 Regional Fertilizer Cost Exposure")
+        st.markdown(
+            "Each spike shows **how much urea a state needs annually** based on USDA planted "
+            "acres (corn · wheat · soy). Height = total exposure. Color = cost intensity. "
+            "Drag to rotate · scroll to zoom · hover for details."
+        )
+
+        hm1, hm2, hm3 = st.columns(3)
+        hm1.metric("Current Urea", f"${cur_p:.0f}/mt")
+        hm2.metric("60-Day Forecast", f"${fc_p:.0f}/mt", delta=f"{chg_pct:+.1f}%")
+        hm3.metric("Signal", sig_map["signal"])
+
+        # ── Build state dataset ────────────────────────────────────────────
+        state_df = build_state_df(cache)
+
+        # ── View controls ──────────────────────────────────────────────────
+        vc1, vc2 = st.columns([2, 2])
+        with vc1:
+            view_mode = st.radio(
+                "View mode",
+                ["🌐 3-D Perspective", "🗺️ Flat map (top-down)"],
+                horizontal=True,
+                key="map_view_mode",
+            )
+        with vc2:
+            color_metric = st.radio(
+                "Color / height by",
+                ["Fertilizer exposure (urea MT)", "60-day cost impact ($M)"],
+                horizontal=True,
+                key="map_color_metric",
+            )
+
+        # Recompute elevation & color if user chooses cost-impact mode
+        if "cost impact" in color_metric:
+            max_val          = state_df["impact_m"].abs().max()
+            norm             = (state_df["impact_m"].abs() / max_val).clip(0, 1)
+            state_df["elevation"] = (norm * 500_000).clip(1000)
+            state_df["color_r"]   = (norm * 255).astype(int)
+            state_df["color_g"]   = (255 - norm * 200).clip(0, 255).astype(int)
+            state_df["color_b"]   = 30
+            state_df["color_a"]   = 210
+
+        layer = pdk.Layer(
+            "ColumnLayer",
+            data=state_df,
+            get_position="[lng, lat]",
+            get_elevation="elevation",
+            elevation_scale=1,
+            radius=55000,
+            get_fill_color="[color_r, color_g, color_b, color_a]",
+            pickable=True,
+            auto_highlight=True,
+            coverage=0.85,
+        )
+
+        if "3-D" in view_mode:
+            view = pdk.ViewState(
+                longitude=-96,
+                latitude=36,
+                zoom=3.2,
+                pitch=55,
+                bearing=-10,
+            )
+        else:
+            view = pdk.ViewState(
+                longitude=-96,
+                latitude=39,
+                zoom=3.6,
+                pitch=0,
+                bearing=0,
+            )
+
+        # CARTO dark-matter style — free, no Mapbox token required
+        DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+
+        deck = pdk.Deck(
+            layers=[layer],
+            initial_view_state=view,
+            map_style=DARK_STYLE,
+            tooltip={
+                "html": "{tooltip}",
+                "style": {
+                    "backgroundColor": "#0f172a",
+                    "color": "#f1f5f9",
+                    "fontSize": "13px",
+                    "padding": "10px 14px",
+                    "borderRadius": "8px",
+                    "border": "1px solid #334155",
+                },
+            },
+        )
+
+        st.pydeck_chart(deck, use_container_width=True, height=600)
+
+        # ── Color legend ───────────────────────────────────────────────────
+        st.markdown("""
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <span style="font-size:0.8rem;color:#64748b;">Low exposure</span>
+            <div style="height:12px;width:200px;background:linear-gradient(to right,
+                #1e7b1e, #b8a010, #ff1e1e);border-radius:4px;"></div>
+            <span style="font-size:0.8rem;color:#64748b;">High exposure</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.divider()
+
+        # ── State rankings table ───────────────────────────────────────────
+        st.subheader("State Rankings — Fertilizer Exposure")
+        table_df = state_df[[
+            "state", "corn_acres", "wheat_acres", "soy_acres",
+            "urea_mt", "current_cost_m", "forecast_cost_m", "impact_m",
+        ]].copy()
+        table_df["urea_mt"]          = table_df["urea_mt"].apply(lambda x: f"{x/1000:,.0f}K mt")
+        table_df["current_cost_m"]   = table_df["current_cost_m"].apply(lambda x: f"${x:.1f}M")
+        table_df["forecast_cost_m"]  = table_df["forecast_cost_m"].apply(lambda x: f"${x:.1f}M")
+        table_df["impact_m"]         = table_df["impact_m"].apply(lambda x: f"{chg_sign}${abs(x):.1f}M")
+        table_df["corn_acres"]       = table_df["corn_acres"].apply(lambda x: f"{x/1e6:.1f}M ac" if x >= 1e6 else f"{x/1e3:.0f}K ac")
+        table_df["wheat_acres"]      = table_df["wheat_acres"].apply(lambda x: f"{x/1e6:.1f}M ac" if x >= 1e6 else f"{x/1e3:.0f}K ac")
+        table_df["soy_acres"]        = table_df["soy_acres"].apply(lambda x: f"{x/1e6:.1f}M ac" if x >= 1e6 else f"{x/1e3:.0f}K ac")
+        table_df.columns = [
+            "State", "Corn", "Wheat", "Soybeans",
+            "Urea Needed", "Current Cost", "60-Day Forecast", f"Impact ({chg_sign})",
+        ]
+        st.dataframe(table_df, use_container_width=True, hide_index=True)
+        st.caption(
+            f"USDA 2023 planted acres. Urea = total N ÷ (46% N content).  "
+            f"Current price: ${cur_p:.0f}/mt → 60-day forecast: ${fc_p:.0f}/mt ({chg_pct:+.1f}%)."
         )
