@@ -121,59 +121,93 @@ st.markdown("""
     [data-testid='stSidebarNav'] { display: none; }
     [data-testid='collapsedControl'] { display: none; }
     section[data-testid='stSidebar'] { display: none; }
+    header[data-testid='stHeader'] { display: none; }
     body, .stApp { background-color: #ffffff; }
     h1, h2, h3 { color: #1a5c2a; font-family: system-ui, sans-serif; }
-    
+
+    /* shrink top padding so content starts higher */
+    .block-container { padding-top: 0.5rem !important; }
+
+    /* Sticky header row — first direct child of the top-level vertical block */
+    section[data-testid="stMain"] > div > div[data-testid="stVerticalBlock"] > div:first-child {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background: white;
+        padding-bottom: 0.3rem;
+        border-bottom: 1px solid #e8f4e8;
+    }
+
+    /* Keep "Logged in as …" on one line */
+    .user-email-bar {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: right;
+        padding-top: 0.42rem;
+        font-size: 0.95rem;
+        color: #444;
+    }
+
+    /* Prevent button labels from wrapping */
+    .stButton button, button[data-testid^="stBaseButton"] {
+        white-space: nowrap !important;
+    }
+
     .banner {
         background-color: #f0f7f0;
         border: 1px solid #d4edda;
-        padding: 2.5rem 2rem;
-        margin-bottom: 2rem;
+        padding: 2.8rem 2rem;
+        margin-bottom: 1.5rem;
         text-align: center;
     }
-    
+
     .metric-card {
         background: #f9fbf9;
         border: 1px solid #e0e0e0;
         border-radius: 0px;
-        padding: 1.8rem 1.5rem;
+        padding: 2rem 1.5rem;
         text-align: center;
     }
-    
-    .metric-label { 
-        color: #666; 
-        font-size: 0.8rem; 
-        font-weight: 500; 
-        text-transform: uppercase; 
+
+    .metric-label {
+        color: #666;
+        font-size: 1rem;
+        font-weight: 500;
+        text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    
-    .metric-value { 
-        color: #1a5c2a; 
-        font-size: 2rem; 
+
+    .metric-value {
+        color: #1a5c2a;
+        font-size: 2.4rem;
         font-weight: 600;
         margin-top: 0.5rem;
     }
-    
+
     .advice-card {
         background: #f9fbf9;
         border-left: 4px solid #1a5c2a;
         border-radius: 0px;
-        padding: 1.8rem 1.5rem;
+        padding: 2rem 1.8rem;
         margin-top: 1.5rem;
     }
-    
+
     .risk-medium { color: #e67e22; font-weight: 600; }
     .risk-low    { color: #27ae60; font-weight: 600; }
     .risk-high   { color: #e74c3c; font-weight: 600; }
-    
+
     .empty-state {
         text-align: center;
         padding: 4rem 2rem;
         color: #999;
+        font-size: 1.1rem;
         background: #f9fbf9;
         border: 1px solid #e0e0e0;
     }
+
+    /* make tab labels bigger */
+    button[data-baseweb="tab"] { font-size: 1.05rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -181,26 +215,23 @@ init_farm_db()
 email = st.session_state.user_email
 df = get_farmer_crops(email)
 
-# ── Banner ───────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="banner">
-    <h1 style="margin:0 0 0.5rem 0; font-size:2.5rem;">🌾 AgriSignal</h1>
-    <p style="margin:0; color:#666; font-size:1rem;">Fertilizer intelligence for farmers</p>
-</div>
-""", unsafe_allow_html=True)
-
-# ── Header ───────────────────────────────────────────────────────────────────
-col_title, col_signout = st.columns([9, 1])
-with col_title:
-    st.caption(f"Logged in as **{email}**")
+# ── Top-right user bar ────────────────────────────────────────────────────────
+_, col_user, col_signout = st.columns([5, 3, 1])
+with col_user:
+    st.markdown(f'<div class="user-email-bar">Logged in as <strong>{email}</strong></div>', unsafe_allow_html=True)
 with col_signout:
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("Sign Out"):
+    if st.button("Sign Out", use_container_width=True):
         st.session_state.logged_in = False
         st.session_state.user_email = ""
         st.switch_page("login.py")
 
-st.markdown("---")
+# ── Banner ───────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="banner">
+    <h1 style="margin:0 0 0.6rem 0; font-size:3.2rem;">🌾 AgriSignal</h1>
+    <p style="margin:0; color:#555; font-size:1.2rem;">Fertilizer intelligence for farmers</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
 tab_overview, tab_fertilizer = st.tabs(["Overview", "Fertilizer Costs & Risk Assessment"])
@@ -238,12 +269,11 @@ with tab_overview:
     if df.empty:
         st.markdown(
             '<div class="empty-state">'
-            '<p style="font-size:1.2rem; font-weight:500; margin-bottom:0.8rem;">No farm data yet</p>'
-            '<p style="color:#999;">Use the form above to add your crops and acreage.</p>'
+            '<p style="font-size:1.4rem; font-weight:500; margin-bottom:0.8rem;">No farm data yet</p>'
+            '<p style="color:#999; font-size:1.1rem;">Use the form above to add your crops and acreage.</p>'
             '</div>',
             unsafe_allow_html=True,
         )
-        st.markdown("<br><br>", unsafe_allow_html=True)
     else:
         fert = get_fertilizer_totals(df)
         total_acres      = df["acres"].sum()
@@ -266,9 +296,7 @@ with tab_overview:
                 unsafe_allow_html=True,
             )
 
-        st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("---")
-        st.markdown("<br>", unsafe_allow_html=True)
 
         col_chart, col_gap, col_table = st.columns([5, 0.3, 3])
 
@@ -287,14 +315,12 @@ with tab_overview:
 
         with col_table:
             st.subheader("Crop Breakdown")
-            st.markdown("<br>", unsafe_allow_html=True)
             for _, row in df.iterrows():
-                r1, r2 = st.columns([4, 1])
+                r1, r2 = st.columns([3, 1])
                 r1.markdown(f"**{row['crop_name']}** · {row['acres']:,.0f} acres")
                 if r2.button("Remove", key=f"del_{row['id']}", use_container_width=True):
                     delete_crop(row["id"])
                     st.rerun()
-                st.markdown("")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -303,7 +329,6 @@ with tab_overview:
 with tab_fertilizer:
     st.subheader("Predicted Fertilizer Price")
     st.caption("Next 12 months forecast")
-    st.markdown("<br>", unsafe_allow_html=True)
 
     forecast_df = get_fertilizer_price_forecast()
 
@@ -328,13 +353,8 @@ with tab_fertilizer:
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("---")
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown("<br>", unsafe_allow_html=True)
     st.subheader("Buying Advice")
-    st.markdown("<br>", unsafe_allow_html=True)
 
     advice = get_buy_advice()
     risk   = advice["risk_level"]
@@ -342,10 +362,10 @@ with tab_fertilizer:
 
     st.markdown(
         f'<div class="advice-card">'
-        f'<p style="font-size:1rem; font-weight:600; color:#1a5c2a; margin:0 0 0.8rem 0;">'
+        f'<p style="font-size:1.2rem; font-weight:600; color:#1a5c2a; margin:0 0 0.9rem 0;">'
         f'📋 {advice["recommendation"]}</p>'
-        f'<p style="margin:0 0 0.6rem 0;">Risk Level: <span class="{risk_class}">{risk}</span></p>'
-        f'<p style="color:#666; margin:0; line-height:1.5;">{advice["reasoning"]}</p>'
+        f'<p style="margin:0 0 0.7rem 0; font-size:1.05rem;">Risk Level: <span class="{risk_class}">{risk}</span></p>'
+        f'<p style="color:#555; margin:0; line-height:1.6; font-size:1.05rem;">{advice["reasoning"]}</p>'
         f'</div>',
         unsafe_allow_html=True,
     )
