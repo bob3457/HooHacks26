@@ -1024,19 +1024,22 @@ predict where urea prices are heading.
 and this band captures the middle 80% of outcomes. If the band is wide, uncertainty is high.
 If it's narrow, the model is more confident.
 
-**Nat Gas overlay (toggle)** — shows US natural gas spot price on the right axis (green line).
-Watch how nat gas spikes tend to precede urea spikes by several weeks — that's the signal this model captures.
+**Nat Gas overlay (toggle)** — shows US natural gas spot price on the right axis (green dotted line), **shifted forward 5 months** to align with its actual effect on urea prices. Urea is manufactured from natural gas; a price move in nat gas takes ~4–6 months to pass through to fertilizer markets. The shift makes the correlation visible: nat gas spikes should line up with urea spikes on the chart.
             """)
 
         show_ng = st.toggle("Overlay Natural Gas prices (secondary axis)", value=False)
 
-        def _labels_to_dates(labels):
+        def _labels_to_dates(labels, shift_months=0):
             """Convert 'Mon YYYY' strings to ISO date strings for proper Plotly time axis."""
             from datetime import datetime
+            from dateutil.relativedelta import relativedelta
             out = []
             for lbl in labels:
                 try:
-                    out.append(datetime.strptime(lbl, "%b %Y").strftime("%Y-%m-01"))
+                    dt = datetime.strptime(lbl, "%b %Y")
+                    if shift_months:
+                        dt = dt + relativedelta(months=shift_months)
+                    out.append(dt.strftime("%Y-%m-01"))
                 except ValueError:
                     out.append(lbl)
             return out
@@ -1085,7 +1088,7 @@ Watch how nat gas spikes tend to precede urea spikes by several weeks — that's
                 x=_labels_to_dates(cache["natgas_history"]["labels"]),
                 y=cache["natgas_history"]["values"],
                 name="Nat Gas ($/MMBtu)",
-                line=dict(color="#16a34a", width=1.5),
+                line=dict(color="#16a34a", width=1.5, dash="dot"),
                 yaxis="y2",
                 hovertemplate="$%{y:.2f}/MMBtu<extra>Nat Gas</extra>",
             ))
