@@ -647,7 +647,139 @@ with tab_overview:
 
     # ── COLUMN 2: placeholder (filled in Task 3) ──────────────────────────
     with col_center:
-        st.write("chart coming soon")
+        st.markdown(
+            '<div style="font-size:0.62rem;color:#4b7c59;font-weight:600;'
+            'text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">'
+            'Crop Distribution</div>',
+            unsafe_allow_html=True,
+        )
+
+        if df.empty:
+            st.markdown("""
+            <div style="background:#f0fdf4;border-radius:12px;height:260px;
+                        display:flex;align-items:center;justify-content:center;
+                        border:2px dashed #86efac;text-align:center;padding:20px;">
+              <div>
+                <div style="font-size:2rem;margin-bottom:8px;">🌾</div>
+                <div style="font-size:0.85rem;color:#4b7c59;font-weight:600;">No crops yet</div>
+                <div style="font-size:0.72rem;color:#9ca3af;margin-top:4px;">
+                  Add your first crop on the right →</div>
+              </div>
+            </div>""", unsafe_allow_html=True)
+        else:
+            # Year filter
+            all_years_in_data = sorted(df["year"].dropna().astype(int).unique().tolist(), reverse=True)
+            current_year = 2026
+            default_year = current_year if current_year in all_years_in_data else (all_years_in_data[0] if all_years_in_data else current_year)
+            if "pie_year_filter" not in st.session_state:
+                st.session_state["pie_year_filter"] = default_year
+            if st.session_state["pie_year_filter"] not in all_years_in_data and all_years_in_data:
+                st.session_state["pie_year_filter"] = default_year
+            selected_year = st.selectbox(
+                "Year",
+                options=all_years_in_data,
+                index=all_years_in_data.index(st.session_state["pie_year_filter"]) if st.session_state["pie_year_filter"] in all_years_in_data else 0,
+                key="pie_year_filter",
+            )
+
+            # Season filter
+            all_seasons_in_data   = sorted(df["season"].unique().tolist())
+            all_seasons_available = sorted(set(all_seasons_in_data + st.session_state.seasons))
+            if "_pie_select_all_saved" in st.session_state:
+                st.session_state["pie_select_all"] = st.session_state.pop("_pie_select_all_saved")
+            if "_pie_filter_saved" in st.session_state:
+                saved = st.session_state.pop("_pie_filter_saved")
+                if saved is not None:
+                    st.session_state["pie_season_filter"] = saved
+            if "pie_select_all" not in st.session_state:
+                st.session_state["pie_select_all"] = True
+            select_all = st.checkbox("Select all seasons", key="pie_select_all")
+            selected_seasons = (
+                all_seasons_available if select_all else
+                st.multiselect("Filter by season", options=all_seasons_available,
+                               default=all_seasons_in_data, key="pie_season_filter")
+            )
+
+            filtered_df = df[
+                (df["season"].isin(selected_seasons)) &
+                (df["year"].astype(int) == int(selected_year))
+            ].copy() if selected_seasons else df.iloc[0:0].copy()
+
+            season_base = get_season_base_colors(all_seasons_available)
+
+            if filtered_df.empty:
+                st.info("No crops match the selected year and seasons.")
+            else:
+                crop_colors = get_crop_colors_for_df(filtered_df, season_base)
+                dup_crops = filtered_df["crop_name"].duplicated(keep=False)
+                filtered_df["display_label"] = filtered_df.apply(
+                    lambda r: f"{r['crop_name']} ({r['season']})" if dup_crops[r.name] else r["crop_name"],
+                    axis=1,
+                )
+                fig = go.Figure()
+                fig.add_trace(go.Pie(
+                    labels=filtered_df["display_label"],
+                    values=filtered_df["acres"],
+                    marker=dict(colors=crop_colors, line=dict(color="white", width=1.5)),
+                    textposition="inside",
+                    textinfo="percent+label",
+                    hole=0.35,
+                    hovertemplate="<b>%{label}</b><br>%{value:,.0f} acres (%{percent})<extra></extra>",
+                    showlegend=True,
+                ))
+                for season, base_color in season_base.items():
+                    if season in filtered_df["season"].values:
+                        fig.add_trace(go.Scatter(
+                            x=[None], y=[None], mode="markers",
+                            marker=dict(symbol="square", size=10, color=base_color),
+                            name=season, showlegend=True,
+                        ))
+                fig.update_layout(
+                    showlegend=True,
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.28,
+                                xanchor="center", x=0.5, font=dict(size=11)),
+                    margin=dict(t=10, b=70, l=10, r=10),
+                    height=270,
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#14532d"),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Insight cards
+                _c2p   = (cache or {}).get("signal", {}).get("currentPrice", 400) or 400
+                _cplbn = (_c2p / LBS_PER_MT) / UREA_N_CONTENT
+                crop_costs = {}
+                for crop_name in df["crop_name"].unique():
+                    total_n = df[df["crop_name"] == crop_name]["acres"].sum() * N_INTENSITY_LBS_PER_ACRE.get(crop_name, 100)
+                    crop_costs[crop_name] = total_n * _cplbn
+
+                top_crop = max(crop_costs, key=crop_costs.get) if crop_costs else "—"
+                top_cost = crop_costs.get(top_crop, 0)
+                top_pct  = top_cost / sum(crop_costs.values()) * 100 if crop_costs else 0
+                hi_n_crop = max(df["crop_name"].unique(),
+                                key=lambda c: N_INTENSITY_LBS_PER_ACRE.get(c, 0),
+                                default="—")
+                hi_n_val = N_INTENSITY_LBS_PER_ACRE.get(hi_n_crop, 0)
+
+                ic1, ic2 = st.columns(2)
+                ic1.markdown(f"""
+                <div style="background:#fff;border:1.5px solid #d1fae5;border-radius:10px;
+                            padding:10px 12px;margin-top:4px;">
+                  <div style="font-size:0.55rem;color:#6b7280;text-transform:uppercase;
+                              letter-spacing:0.4px;margin-bottom:3px;">Largest Cost Driver</div>
+                  <div style="font-size:0.95rem;font-weight:700;color:#14532d;">{top_crop}</div>
+                  <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">
+                    ${top_cost:,.0f} · {top_pct:.0f}% of spend</div>
+                </div>""", unsafe_allow_html=True)
+                ic2.markdown(f"""
+                <div style="background:#fff;border:1.5px solid #d1fae5;border-radius:10px;
+                            padding:10px 12px;margin-top:4px;">
+                  <div style="font-size:0.55rem;color:#6b7280;text-transform:uppercase;
+                              letter-spacing:0.4px;margin-bottom:3px;">Highest N Intensity</div>
+                  <div style="font-size:0.95rem;font-weight:700;color:#14532d;">{hi_n_val} lbs/ac</div>
+                  <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">{hi_n_crop} — most N-heavy</div>
+                </div>""", unsafe_allow_html=True)
 
     # ── COLUMN 3: placeholder (filled in Task 4) ──────────────────────────
     with col_right:
