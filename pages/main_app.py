@@ -835,10 +835,21 @@ Watch how nat gas spikes tend to precede urea spikes by several weeks — that's
 
         show_ng = st.toggle("Overlay Natural Gas prices (secondary axis)", value=False)
 
-        hist_x  = cache["urea_history"]["labels"]
+        def _labels_to_dates(labels):
+            """Convert 'Mon YYYY' strings to ISO date strings for proper Plotly time axis."""
+            from datetime import datetime
+            out = []
+            for lbl in labels:
+                try:
+                    out.append(datetime.strptime(lbl, "%b %Y").strftime("%Y-%m-01"))
+                except ValueError:
+                    out.append(lbl)
+            return out
+
+        hist_x  = _labels_to_dates(cache["urea_history"]["labels"])
         hist_y  = cache["urea_history"]["values"]
 
-        bridge_x    = [hist_x[-1]] + fc["labels"]
+        bridge_x    = [hist_x[-1]] + _labels_to_dates(fc["labels"])
         bridge_mean = [hist_y[-1]] + fc["mean"]
         bridge_high = [hist_y[-1]] + fc["high"]
         bridge_low  = [hist_y[-1]] + fc["low"]
@@ -867,7 +878,7 @@ Watch how nat gas spikes tend to precede urea spikes by several weeks — that's
             hovertemplate="$%{y:.0f}/mt<extra>Forecast (median)</extra>",
         ))
         fig_fc.add_trace(go.Scatter(
-            x=fc["labels"], y=fc["mean"],
+            x=_labels_to_dates(fc["labels"]), y=fc["mean"],
             mode="markers",
             marker=dict(color="#ef4444", size=9),
             showlegend=False,
@@ -876,7 +887,7 @@ Watch how nat gas spikes tend to precede urea spikes by several weeks — that's
 
         if show_ng:
             fig_fc.add_trace(go.Scatter(
-                x=cache["natgas_history"]["labels"],
+                x=_labels_to_dates(cache["natgas_history"]["labels"]),
                 y=cache["natgas_history"]["values"],
                 name="Nat Gas ($/MMBtu)",
                 line=dict(color="#16a34a", width=1.5),
