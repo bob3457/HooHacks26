@@ -502,7 +502,7 @@ with col_signout:
 # ── Banner ───────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="agri-banner">
-  <h1>🌾 AgriSignal</h1>
+  <h1>🌾 foreGASt</h1>
   <p>Fertilizer intelligence for American farmers. Real prices, real risk, real decisions.</p>
 </div>
 """, unsafe_allow_html=True)
@@ -602,7 +602,7 @@ with tab_overview:
 
     urea_hist     = (cache or {}).get("urea_history", None)
 
-    col_left, col_center, col_right = st.columns([1, 1.4, 1])
+    col_left, col_center, col_right = st.columns([1, 1.1, 1.4])
 
     # ── COLUMN 1: Financial Panel ─────────────────────────────────────────
     with col_left:
@@ -767,13 +767,17 @@ with tab_overview:
                     showlegend=True,
                     legend=dict(orientation="h", yanchor="bottom", y=-0.28,
                                 xanchor="center", x=0.5, font=dict(size=11)),
-                    margin=dict(t=10, b=70, l=10, r=10),
+                    margin=dict(t=0, b=55, l=10, r=10),
                     height=270,
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
                     font=dict(color="#14532d"),
+                    xaxis=dict(visible=False, showgrid=False),
+                    yaxis=dict(visible=False, showgrid=False),
                 )
+                st.markdown('<div style="margin-top:-12px;">', unsafe_allow_html=True)
                 st.plotly_chart(fig, use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
                 # Insight cards
                 _c2p   = (cache or {}).get("signal", {}).get("currentPrice", 400) or 400
@@ -791,23 +795,25 @@ with tab_overview:
                                 default="—")
                 hi_n_val = N_INTENSITY_LBS_PER_ACRE.get(hi_n_crop, 0)
 
-                ic1, ic2 = st.columns(2)
-                ic1.markdown(f"""
-                <div style="background:#fff;border:1.5px solid #d1fae5;border-radius:10px;
-                            padding:10px 12px;margin-top:4px;">
-                  <div style="font-size:0.55rem;color:#6b7280;text-transform:uppercase;
-                              letter-spacing:0.4px;margin-bottom:3px;">Largest Cost Driver</div>
-                  <div style="font-size:0.95rem;font-weight:700;color:#14532d;">{top_crop}</div>
-                  <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">
-                    ${top_cost:,.0f} · {top_pct:.0f}% of spend</div>
-                </div>""", unsafe_allow_html=True)
-                ic2.markdown(f"""
-                <div style="background:#fff;border:1.5px solid #d1fae5;border-radius:10px;
-                            padding:10px 12px;margin-top:4px;">
-                  <div style="font-size:0.55rem;color:#6b7280;text-transform:uppercase;
-                              letter-spacing:0.4px;margin-bottom:3px;">Highest N Intensity</div>
-                  <div style="font-size:0.95rem;font-weight:700;color:#14532d;">{hi_n_val} lbs/ac</div>
-                  <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">{hi_n_crop} — most N-heavy</div>
+                st.markdown(f"""
+                <div style="display:flex;gap:8px;margin-top:-30px;margin-bottom:4px;align-items:stretch;">
+                  <div style="flex:1;background:#fff;border:1.5px solid #d1fae5;border-radius:10px;
+                              padding:10px 12px;">
+                    <div style="font-size:0.55rem;color:#6b7280;text-transform:uppercase;
+                                letter-spacing:0.4px;margin-bottom:3px;">Largest Cost Driver</div>
+                    <div style="font-size:0.95rem;font-weight:700;color:#14532d;">{top_crop}</div>
+                    <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">
+                      ${top_cost:,.0f} · {top_pct:.0f}% of spend</div>
+                  </div>
+                  <div style="flex:1;background:#fff;border:1.5px solid #d1fae5;border-radius:10px;
+                              padding:10px 12px;display:flex;align-items:center;">
+                    <div>
+                      <div style="font-size:0.55rem;color:#6b7280;text-transform:uppercase;
+                                  letter-spacing:0.4px;margin-bottom:3px;">Highest N Intensity</div>
+                      <div style="font-size:0.95rem;font-weight:700;color:#14532d;">{hi_n_val} lbs/ac</div>
+                      <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">{hi_n_crop} — most N-heavy</div>
+                    </div>
+                  </div>
                 </div>""", unsafe_allow_html=True)
 
     # ── COLUMN 3: Crop Management ─────────────────────────────────────────
@@ -978,24 +984,44 @@ This model exploits that lag to give you advance warning.
 **Best month** is whichever of the 3 forecast months has the lowest median simulated price.
             """)
 
-        m1, m2, m3, m4 = st.columns(4)
         cur_price = sig.get("currentPrice", 0) or 1
         fc_t2     = sig.get("forecast_t2", cur_price)
         pct_chg   = (fc_t2 - cur_price) / cur_price * 100
-        with m1:
-            st.metric("Current Urea Price", f"${cur_price:.0f}/mt")
-        with m2:
-            st.metric("60-Day Forecast (t2)", f"${fc_t2:.0f}/mt", delta=f"{pct_chg:+.1f}%")
-        with m3:
-            prob_r = sig.get("prob_rising", 0)
-            st.metric("Prob. Rising (60d)", f"{prob_r*100:.0f}%")
-        with m4:
-            ng_cur = sig.get("ng_current", 0)
-            ng_chg = sig.get("ng_change_30d", 0)
-            st.metric(
-                "Nat Gas Spot", f"${ng_cur:.2f}/MMBtu",
-                delta=f"{ng_chg*100:+.1f}% (30d)"
-            )
+        prob_r    = sig.get("prob_rising", 0)
+        ng_cur    = sig.get("ng_current", 0)
+        ng_chg    = sig.get("ng_change_30d", 0)
+
+        pct_color  = "#22c55e" if pct_chg >= 0 else "#ef4444"
+        pct_arrow  = "▲" if pct_chg >= 0 else "▼"
+        ng_color   = "#22c55e" if ng_chg >= 0 else "#ef4444"
+        ng_arrow   = "▲" if ng_chg >= 0 else "▼"
+
+        st.markdown(f"""
+        <div style="display:flex;gap:12px;margin-bottom:8px;">
+          <div style="flex:1;border:1.5px solid #d1fae5;border-radius:10px;padding:14px 16px;
+                      background:#fff;box-shadow:inset 0 0 0 3px rgba(34,197,94,0.08);">
+            <div style="font-size:0.65rem;color:#6b7280;margin-bottom:6px;">Current Urea Price</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#14532d;">${cur_price:.0f}/mt</div>
+          </div>
+          <div style="flex:1;border:1.5px solid #d1fae5;border-radius:10px;padding:14px 16px;
+                      background:#fff;box-shadow:inset 0 0 0 3px rgba(34,197,94,0.08);">
+            <div style="font-size:0.65rem;color:#6b7280;margin-bottom:6px;">60-Day Forecast (t2)</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#14532d;">${fc_t2:.0f}/mt</div>
+            <div style="font-size:0.75rem;color:{pct_color};margin-top:4px;">{pct_arrow} {pct_chg:+.1f}%</div>
+          </div>
+          <div style="flex:1;border:1.5px solid #d1fae5;border-radius:10px;padding:14px 16px;
+                      background:#fff;box-shadow:inset 0 0 0 3px rgba(34,197,94,0.08);">
+            <div style="font-size:0.65rem;color:#6b7280;margin-bottom:6px;">Prob. Rising (60d)</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#14532d;">{prob_r*100:.0f}%</div>
+          </div>
+          <div style="flex:1;border:1.5px solid #d1fae5;border-radius:10px;padding:14px 16px;
+                      background:#fff;box-shadow:inset 0 0 0 3px rgba(34,197,94,0.08);">
+            <div style="font-size:0.65rem;color:#6b7280;margin-bottom:6px;">Nat Gas Spot</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#14532d;">${ng_cur:.2f}/MMBtu</div>
+            <div style="font-size:0.75rem;color:{ng_color};margin-top:4px;">{ng_arrow} {ng_chg*100:+.1f}% (30d)</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.markdown(f"""
         <div style="background:{color}22; border-left:4px solid {color}; padding:16px;
@@ -1178,11 +1204,30 @@ if things go badly. Budget fertilizer costs using P90, hope for P10.
         )
         st.plotly_chart(fig_mc, width='stretch')
 
-        mc_c1, mc_c2, mc_c3, mc_c4 = st.columns(4)
-        mc_c1.metric("P10 — Optimistic",  f"${mc['p10_t2']:.0f}/mt")
-        mc_c2.metric("P50 — Median",      f"${mc['p50_t2']:.0f}/mt")
-        mc_c3.metric("P90 — Pessimistic", f"${mc['p90_t2']:.0f}/mt")
-        mc_c4.metric("Prob. >10% Rise",   f"{mc['prob_10pct_increase_t2']*100:.0f}%")
+        st.markdown(f"""
+        <div style="display:flex;gap:12px;margin-bottom:8px;">
+          <div style="flex:1;border:1.5px solid #d1fae5;border-radius:10px;padding:14px 16px;
+                      background:#fff;box-shadow:inset 0 0 0 3px rgba(34,197,94,0.08);">
+            <div style="font-size:0.65rem;color:#6b7280;margin-bottom:6px;">P10 — Optimistic</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#14532d;">${mc['p10_t2']:.0f}/mt</div>
+          </div>
+          <div style="flex:1;border:1.5px solid #d1fae5;border-radius:10px;padding:14px 16px;
+                      background:#fff;box-shadow:inset 0 0 0 3px rgba(34,197,94,0.08);">
+            <div style="font-size:0.65rem;color:#6b7280;margin-bottom:6px;">P50 — Median</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#14532d;">${mc['p50_t2']:.0f}/mt</div>
+          </div>
+          <div style="flex:1;border:1.5px solid #d1fae5;border-radius:10px;padding:14px 16px;
+                      background:#fff;box-shadow:inset 0 0 0 3px rgba(34,197,94,0.08);">
+            <div style="font-size:0.65rem;color:#6b7280;margin-bottom:6px;">P90 — Pessimistic</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#14532d;">${mc['p90_t2']:.0f}/mt</div>
+          </div>
+          <div style="flex:1;border:1.5px solid #d1fae5;border-radius:10px;padding:14px 16px;
+                      background:#fff;box-shadow:inset 0 0 0 3px rgba(34,197,94,0.08);">
+            <div style="font-size:0.65rem;color:#6b7280;margin-bottom:6px;">Prob. &gt;10% Rise</div>
+            <div style="font-size:1.4rem;font-weight:700;color:#14532d;">{mc['prob_10pct_increase_t2']*100:.0f}%</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.divider()
 
@@ -1343,13 +1388,15 @@ the mathematical optimum — any other split costs you more in expectation.
             (oc2, f"Optimal ({pct_now}% now)",  exp_opt,  p10_opt,  p90_opt,  True),
             (oc3, "Wait Entirely",              exp_wait, p10_wait, p90_wait, False),
         ]:
-            border = "#f59e0b" if is_opt else "#d1d5db"
-            bg     = "rgba(245,158,11,0.07)" if is_opt else "#f9fbf9"
-            badge  = "★ RECOMMENDED" if is_opt else ""
+            if is_opt:
+                border = "2px solid #f59e0b"
+            else:
+                border = "1.5px solid #d1d5db"
+            badge = "★ RECOMMENDED" if is_opt else ""
             with col:
                 st.markdown(
-                    f"<div style='border:2px solid {border};border-radius:10px;"
-                    f"padding:14px 16px;background:{bg};min-height:175px;'>"
+                    f"<div style='border:{border};border-radius:10px;"
+                    f"padding:14px 16px;background:#fff;min-height:175px;'>"
                     f"<div style='font-size:0.9rem;font-weight:700;color:#111;'>{label}</div>"
                     + (f"<div style='font-size:0.68rem;font-weight:700;color:#f59e0b;"
                        f"margin-bottom:6px;'>{badge}</div>" if badge else
