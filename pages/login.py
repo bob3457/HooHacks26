@@ -129,7 +129,10 @@ st.set_page_config(
 st.markdown(
     "<style>[data-testid='stSidebarNav']{display:none;}"
     "[data-testid='collapsedControl']{display:none;}"
-    "section[data-testid='stSidebar']{display:none;}</style>",
+    "section[data-testid='stSidebar']{display:none;}"
+    "header[data-testid='stHeader']{display:none;}"
+    "[data-testid='stToolbar']{display:none;}"
+    "#MainMenu{display:none;}</style>",
     unsafe_allow_html=True,
 )
 
