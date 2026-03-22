@@ -1,4 +1,4 @@
-# AgriSignal
+# Gas Forecast
 
 Fertilizer price intelligence for farmers — powered by natural gas market data.
 

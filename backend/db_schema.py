@@ -5,7 +5,7 @@ import os
 from contextlib import contextmanager
 from typing import Optional
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "sql", "agrisignal.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "sql", "gas_forecast.db")
 
 
 @contextmanager

@@ -24,7 +24,7 @@ from src.models.forecaster import load_models, predict
 from src.simulation.monte_carlo import run_monte_carlo
 from src.signals.engine import generate_signal
 
-print("=== AgriSignal Pipeline ===\n")
+print("=== Gas Forecast Pipeline ===\n")
 
 # ── 1. Load trained models
 print("1/5 — Loading models...")

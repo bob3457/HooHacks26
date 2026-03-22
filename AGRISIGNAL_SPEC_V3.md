@@ -1,4 +1,4 @@
-# AgriSignal — Project Constitution v3
+# Gas Forecast — Project Constitution v3
 > **24-Hour Hackathon Spec | Natural Gas → Fertilizer Price Intelligence for Farmers**
 > Last updated: March 2026 | Status: Active
 
@@ -31,11 +31,11 @@
 
 ## 1. Product Vision
 
-**AgriSignal** is a fertilizer price intelligence and early-warning tool for farmers and agricultural producers. It ingests natural gas market data, forecasts fertilizer prices 30/60/90 days forward using machine learning, runs Monte Carlo simulations to show the range of possible outcomes, and translates all of that into plain-English signals that help farmers make better input purchasing decisions.
+**Gas Forecast** is a fertilizer price intelligence and early-warning tool for farmers and agricultural producers. It ingests natural gas market data, forecasts fertilizer prices 30/60/90 days forward using machine learning, runs Monte Carlo simulations to show the range of possible outcomes, and translates all of that into plain-English signals that help farmers make better input purchasing decisions.
 
 **No futures trading. No loan products. No financial instruments.** Just clean data, honest forecasts, and actionable signals delivered in a way a farmer can actually use.
 
-**The core value:** A commodity desk analyst monitors nat gas prices and adjusts their fertilizer purchasing calendar accordingly. Farmers don't have a commodity desk. AgriSignal is that desk — distilled into a dashboard and a weekly digest.
+**The core value:** A commodity desk analyst monitors nat gas prices and adjusts their fertilizer purchasing calendar accordingly. Farmers don't have a commodity desk. Gas Forecast is that desk — distilled into a dashboard and a weekly digest.
 
 **What a farmer sees:**
 - "Urea prices are forecast to rise 14–22% over the next 60 days. If you haven't purchased spring inputs yet, consider acting soon."
@@ -70,7 +70,7 @@ Seasonal purchasing decision: buy now, wait, or reduce application rate
 - Nat gas prices move daily and are publicly available
 - Fertilizer prices respond with a 4–8 week delay due to production scheduling and distribution
 - That window is long enough for a farmer to act — pre-purchase, lock in a supplier contract, or adjust planting plans
-- This is the information asymmetry AgriSignal closes
+- This is the information asymmetry Gas Forecast closes
 
 **Crop-level fertilizer sensitivity (drives the exposure calculator):**
 
@@ -97,14 +97,14 @@ A corn or wheat farmer managing 200–5,000 acres. Makes fertilizer purchasing d
 - How much will this actually cost me, in dollars, for my farm?
 - When is the right time to buy?
 
-**How they interact with AgriSignal:**
+**How they interact with Gas Forecast:**
 - Weekly email digest with current signal and cost estimate
 - Dashboard for deeper exploration when they want to dig in
 - Input their acreage and crop type once; the tool personalizes estimates from there
 
 ### Secondary User: Agricultural Extension Agent / Co-op Advisor
 
-Serves 50–200 farmers in a region. Uses AgriSignal to advise their farmers on input purchasing timing. Values the regional breakdown and historical context more than the individual farm calculator.
+Serves 50–200 farmers in a region. Uses Gas Forecast to advise their farmers on input purchasing timing. Values the regional breakdown and historical context more than the individual farm calculator.
 
 ### What this product is NOT:
 - Not a trading platform
@@ -268,8 +268,8 @@ If a file already exists in `data/raw/` and is less than 24 hours old per `MANIF
 ## 6. Project Structure
 
 ```
-agrisignal/
-├── AGRISIGNAL_SPEC.md             # This file
+gas_forecast/
+├── GAS_FORECAST_SPEC.md             # This file
 ├── README.md                      # Judges quick start — keep under 20 lines
 ├── .env                           # API keys — never commit
 ├── .env.example                   # Safe to commit
@@ -920,7 +920,7 @@ On startup, load `data/models/xgb_urea_forecast.pkl` and `data/models/model_meta
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  AgriSignal | Fertilizer Price Intelligence             │
+│  Gas Forecast | Fertilizer Price Intelligence             │
 ├──────────────────────────────┬──────────────────────────┤
 │  SIDEBAR — Your Farm         │  MAIN PANEL              │
 │  ─────────────────           │                          │
@@ -1198,7 +1198,7 @@ A Jupyter notebook that: (1) loads EIA and World Bank data, (2) plots nat gas vs
 >
 > Commodity desks track this. Farmers don't have a commodity desk.
 >
-> AgriSignal ingests Henry Hub prices daily, forecasts urea and DAP prices 30, 60, and 90 days forward using an XGBoost model trained on 6 years of monthly data, and runs 10,000 Monte Carlo simulations over the forecast uncertainty to give farmers an honest range of outcomes — not false precision.
+> Gas Forecast ingests Henry Hub prices daily, forecasts urea and DAP prices 30, 60, and 90 days forward using an XGBoost model trained on 6 years of monthly data, and runs 10,000 Monte Carlo simulations over the forecast uncertainty to give farmers an honest range of outcomes — not false precision.
 >
 > A farmer with 500 acres of corn enters their profile and sees: 'Prices are forecast to rise 14% over the next 60 days. In 80% of simulated scenarios, your input costs will increase between $9,000 and $28,000 this season. Consider buying soon.'
 >
@@ -1219,7 +1219,7 @@ A Jupyter notebook that: (1) loads EIA and World Bank data, (2) plots nat gas vs
 ### Installation
 ```bash
 git clone <repo-url>
-cd agrisignal
+cd gas_forecast
 python -m venv .venv
 source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt

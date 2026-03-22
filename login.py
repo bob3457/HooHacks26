@@ -35,7 +35,7 @@ def is_valid_email(email: str) -> bool:
 
 init_db()
 
-st.set_page_config(page_title="AgriSignal", page_icon="🌱", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Gas Forecast", page_icon="🌱", layout="centered", initial_sidebar_state="collapsed")
 
 st.markdown("<style>[data-testid='stSidebarNav'] { display: none; } [data-testid='collapsedControl'] { display: none; } section[data-testid='stSidebar'] { display: none; }</style>", unsafe_allow_html=True)
 
@@ -98,7 +98,7 @@ else:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<h2 style='text-align:center; font-weight:700;'>AgriSignal</h2>",
+        "<h2 style='text-align:center; font-weight:700;'>Gas Forecast</h2>",
         unsafe_allow_html=True,
     )
     st.markdown(

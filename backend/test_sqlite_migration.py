@@ -15,7 +15,7 @@ print("=" * 70)
 print("TEST 1: Verify Database Schema")
 print("=" * 70)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "sql", "agrisignal.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "sql", "gas_forecast.db")
 
 if not os.path.exists(DB_PATH):
     print("❌ Database not found!")
@@ -47,7 +47,7 @@ try:
     )
     
     # Add test subscriber
-    test_email = "test_migration@agrisignal.dev"
+    test_email = "test_migration@gas_forecast.dev"
     result = add_subscriber(test_email, "corn", 100, 0.1)
     print(f"✅ Added subscriber: {result}")
     

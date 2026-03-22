@@ -1,5 +1,5 @@
 ==============================================================================
-  AGRISIGNAL — MODEL MATH & REASONING GUIDE
+  GAS_FORECAST — MODEL MATH & REASONING GUIDE
 ==============================================================================
 
 This file explains every model and algorithm in the project from first
