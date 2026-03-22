@@ -23,6 +23,9 @@ Fertilizer price intelligence for farmers — powered by natural gas market data
 
 Open http://localhost:8000 in your browser.
 
+## Running the UI
+    inside the venv, call streamlit run login.py
+    
 ## Notes
 
 - Always use `.\.venv\Scripts\python` instead of `python` — the venv contains all required packages (xgboost, pandas, etc.)
