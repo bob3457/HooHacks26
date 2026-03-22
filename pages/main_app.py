@@ -54,11 +54,27 @@ _STATE_AG = {
     "Delaware":       (39.00, -75.50,   200,   100,   200),
 }
 
-# ── Auth guard ───────────────────────────────────────────────────────────────
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.switch_page("login.py")
-
+# ── Auth guard ────────────────────────────────────────────────────────────────
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "users.db")
+
+if not st.session_state.get("logged_in"):
+    import time as _t
+    _tok = st.query_params.get("s")
+    if _tok:
+        _row = sqlite3.connect(DB_PATH).execute(
+            "SELECT email FROM session_tokens WHERE token = ? AND expires_at > ?",
+            (_tok, int(_t.time())),
+        ).fetchone()
+        if _row:
+            st.session_state.logged_in         = True
+            st.session_state.user_email        = _row[0]
+            st.session_state["_session_token"] = _tok
+    if not st.session_state.get("logged_in"):
+        st.switch_page("login.py")
+
+# Keep token in URL so F5 refresh restores the session
+if "s" not in st.query_params and st.session_state.get("_session_token"):
+    st.query_params["s"] = st.session_state["_session_token"]
 
 # Add this new line:
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "processed", "cache.json")
@@ -455,7 +471,16 @@ with col_user:
     st.markdown(f'<div class="user-email-bar">{icon_html}<span>Logged in as <strong>{email}</strong></span></div>', unsafe_allow_html=True)
 with col_signout:
     if st.button("Sign Out", width='stretch'):
-        st.session_state.logged_in = False
+        _tok = st.session_state.pop("_session_token", None)
+        if _tok:
+            try:
+                sqlite3.connect(DB_PATH).execute(
+                    "DELETE FROM session_tokens WHERE token = ?", (_tok,)
+                ).connection.commit()
+            except Exception:
+                pass
+        st.query_params.clear()
+        st.session_state.logged_in  = False
         st.session_state.user_email = ""
         st.switch_page("login.py")
 
