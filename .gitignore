@@ -3,10 +3,10 @@
 
 # Python
 .venv/
-__pycache__/
 *.pyc
 *.pyo
-*.joblib
+*.pyd
+__pycache__/
 
 # SQLite database (runtime file — never commit)
 backend/agrisignal.db
@@ -17,9 +17,6 @@ backend/agrisignal.db-wal
 data/models/
 data/processed/
 
-# Node
-backend/node_modules/
-node_modules/
 
 # OS
 .DS_Store
