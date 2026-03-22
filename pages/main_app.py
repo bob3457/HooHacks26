@@ -319,7 +319,13 @@ def build_state_df(cache: dict) -> pd.DataFrame:
 # ── Page setup ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Gas Forecast — Dashboard", page_icon="🌾", layout="wide", initial_sidebar_state="collapsed")
 
-# Get base64 encoded images
+# Load banner background image
+_banner_img_b64 = get_image_base64("image.png")
+_banner_bg_css = (
+    f"linear-gradient(135deg,rgba(14,60,25,0.80) 0%,rgba(16,80,36,0.72) 100%), url({_banner_img_b64})"
+    if _banner_img_b64
+    else "linear-gradient(135deg,#14532d 0%,#166534 55%,#15803d 100%)"
+)
 
 st.markdown(f"""
 <style>
@@ -363,25 +369,6 @@ st.markdown(f"""
         white-space: nowrap !important;
     }}
 
-    .banner {{
-        background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('{banner_bg_url}');
-        background-size: cover;
-        background-position: center;
-        padding: 3rem 2rem;
-        margin-bottom: 2rem;
-        text-align: center;
-        border-radius: 8px;
-    }}
-    
-    .banner h1 {{
-        color: #ffffff !important;
-        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
-    }}
-    
-    .banner p {{
-        color: #f0f0f0;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-    }}
 
     .metric-icon {{
         width: 48px;
@@ -404,6 +391,43 @@ st.markdown(f"""
 
     /* make tab labels bigger */
     button[data-baseweb="tab"] {{ font-size: 1.05rem !important; }}
+
+    /* ── Banner ── */
+    .agri-banner {{
+        background: linear-gradient(135deg, #14532d 0%, #166534 55%, #15803d 100%);
+        padding: 18px 28px;
+        margin-bottom: 0.5rem;
+        border-radius: 0;
+    }}
+    .agri-banner h1 {{
+        color: #fff;
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin: 0 0 4px 0;
+        letter-spacing: -0.3px;
+    }}
+    .agri-banner p {{
+        color: #bbf7d0;
+        font-size: 0.82rem;
+        margin: 0;
+        opacity: 0.9;
+    }}
+
+    /* ── Full-height columns ── */
+    [data-testid="stHorizontalBlock"] {{ align-items: stretch !important; }}
+
+    /* Color the 3 overview columns via CSS nth-child */
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) > div {{
+        background: #f0fdf4;
+        border-radius: 12px;
+        padding: 8px 12px;
+    }}
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3) > div {{
+        background: #fff;
+        border: 1.5px solid #e8f4e8;
+        border-radius: 12px;
+        padding: 8px 12px;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -428,6 +452,14 @@ with col_signout:
         st.session_state.logged_in = False
         st.session_state.user_email = ""
         st.switch_page("login.py")
+
+# ── Banner ───────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="agri-banner">
+  <h1>🌾 AgriSignal</h1>
+  <p>Fertilizer intelligence for American farmers. Real prices, real risk, real decisions.</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
 tab_overview, tab_fertilizer, tab_map = st.tabs(["Overview", "Fertilizer Costs & Risk Assessment", "🌍 Regional Price Map"])
@@ -596,7 +628,7 @@ with tab_overview:
         </div>
         """, unsafe_allow_html=True)
 
-    # ── COLUMN 2: placeholder (filled in Task 3) ──────────────────────────
+    # ── COLUMN 2: Crop Distribution ───────────────────────────────────────
     with col_center:
         st.markdown(
             '<div style="font-size:0.62rem;color:#4b7c59;font-weight:600;'
@@ -732,7 +764,7 @@ with tab_overview:
                   <div style="font-size:0.6rem;color:#6b7280;margin-top:2px;">{hi_n_crop} — most N-heavy</div>
                 </div>""", unsafe_allow_html=True)
 
-    # ── COLUMN 3: placeholder (filled in Task 4) ──────────────────────────
+    # ── COLUMN 3: Crop Management ─────────────────────────────────────────
     with col_right:
         st.markdown(
             '<div style="font-size:0.62rem;color:#4b7c59;font-weight:600;'
