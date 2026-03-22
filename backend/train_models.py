@@ -15,7 +15,7 @@ from src.ingestion.pipeline import run_ingestion
 from src.features.engineer import build_features, save_feature_store
 from src.models.forecaster import train
 
-print("=== AgriSignal Model Training ===\n")
+print("=== Gas Forecast Model Training ===\n")
 
 print("1/3 — Loading data...")
 data = run_ingestion(start="1997-01")  # end=None → auto-extends to latest available month

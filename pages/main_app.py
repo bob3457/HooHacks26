@@ -114,7 +114,7 @@ def get_buy_advice() -> dict:
 
 
 # ── Page setup ───────────────────────────────────────────────────────────────
-st.set_page_config(page_title="AgriSignal — Dashboard", page_icon="🌾", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Gas Forecast — Dashboard", page_icon="🌾", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -228,7 +228,7 @@ with col_signout:
 # ── Banner ───────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="banner">
-    <h1 style="margin:0 0 0.6rem 0; font-size:3.2rem;">🌾 AgriSignal</h1>
+    <h1 style="margin:0 0 0.6rem 0; font-size:3.2rem;">🌾 Gas Forecast</h1>
     <p style="margin:0; color:#555; font-size:1.2rem;">Fertilizer intelligence for farmers</p>
 </div>
 """, unsafe_allow_html=True)

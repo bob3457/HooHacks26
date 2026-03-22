@@ -23,7 +23,7 @@ Your project has been successfully migrated from CSV files to SQLite database. A
      - Subscribers: 3 records
      - Farm borrowers: 1000 records
      - Natural gas prices: 343 monthly records
-   - Database location: `backend/agrisignal.db`
+   - Database location: `backend/gas_forecast.db`
 
 ### 3. **Python Modules Updated** ✅
    - `email_service/subscribers.py` - Now uses SQLite instead of CSV
@@ -51,7 +51,7 @@ Your project has been successfully migrated from CSV files to SQLite database. A
 
 ### **Database Location**
 ```
-backend/agrisignal.db
+backend/gas_forecast.db
 ```
 
 ### **Row Counts**
@@ -168,10 +168,10 @@ python backend/migrate_to_sqlite.py
 ### Monitor Database Performance
 ```bash
 # Check database size
-ls -lh backend/agrisignal.db
+ls -lh backend/gas_forecast.db
 
 # Query performance (if needed)
-sqlite3 backend/agrisignal.db "ANALYZE; PRAGMA query_only=ON;"
+sqlite3 backend/gas_forecast.db "ANALYZE; PRAGMA query_only=ON;"
 ```
 
 ### Archive CSVs
@@ -200,7 +200,7 @@ tar -czf data_backups.tar.gz data/
 ### If queries are slow:
 ```bash
 # Rebuild indices
-sqlite3 backend/agrisignal.db "REINDEX;"
+sqlite3 backend/gas_forecast.db "REINDEX;"
 ```
 
 ### If CSV fallback is needed:
@@ -211,7 +211,7 @@ sqlite3 backend/agrisignal.db "REINDEX;"
 
 ### To check database contents:
 ```bash
-sqlite3 backend/agrisignal.db
+sqlite3 backend/gas_forecast.db
 > SELECT * FROM subscribers LIMIT 5;
 > .tables
 > .schema subscribers

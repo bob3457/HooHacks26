@@ -4,7 +4,7 @@
 import os
 import sqlite3
 
-db_path = os.path.join(os.path.dirname(__file__), "data", "sql", "agrisignal.db")
+db_path = os.path.join(os.path.dirname(__file__), "data", "sql", "gas_forecast.db")
 
 print("=" * 70)
 print("SQLITE MIGRATION VERIFICATION - FINAL REPORT")
@@ -13,7 +13,7 @@ print("=" * 70)
 # Check if database exists
 if os.path.exists(db_path):
     size_mb = os.path.getsize(db_path) / (1024 * 1024)
-    print(f"\n✅ Database file exists: agrisignal.db")
+    print(f"\n✅ Database file exists: gas_forecast.db")
     print(f"   Size: {size_mb:.2f} MB")
 else:
     print(f"\n❌ Database file NOT found!")

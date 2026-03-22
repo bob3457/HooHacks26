@@ -1,4 +1,4 @@
-# AgriSignal — Data Findings & Usage Guide
+# Gas Forecast — Data Findings & Usage Guide
 
 ---
 
