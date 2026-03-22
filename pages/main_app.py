@@ -783,7 +783,129 @@ with tab_overview:
 
     # ── COLUMN 3: placeholder (filled in Task 4) ──────────────────────────
     with col_right:
-        st.write("management coming soon")
+        st.markdown(
+            '<div style="font-size:0.62rem;color:#4b7c59;font-weight:600;'
+            'text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">'
+            'Your Crops</div>',
+            unsafe_allow_html=True,
+        )
+
+        # Crop list
+        if not df.empty:
+            season_base_r = get_season_base_colors(st.session_state.seasons)
+            crop_colors_r = get_crop_colors_for_df(df, season_base_r)
+            for (_, row), color in zip(df.iterrows(), crop_colors_r):
+                r1, r2 = st.columns([4, 1])
+                r1.markdown(
+                    f'<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">'
+                    f'<div style="width:9px;height:9px;border-radius:50%;background:{color};'
+                    f'flex-shrink:0;"></div>'
+                    f'<div>'
+                    f'<div style="font-size:0.75rem;font-weight:600;color:#14532d;">{row["crop_name"]}</div>'
+                    f'<div style="font-size:0.62rem;color:#6b7280;">'
+                    f'{row["season"]} · {row["acres"]:,.0f} ac · '
+                    f'${N_INTENSITY_LBS_PER_ACRE.get(row["crop_name"],100)*row["acres"]*(cur_price/LBS_PER_MT/UREA_N_CONTENT if cur_price else 0):,.0f}'
+                    f'</div></div></div>',
+                    unsafe_allow_html=True,
+                )
+                if r2.button("✕", key=f"del_{row['id']}", use_container_width=True):
+                    delete_crop(row["id"])
+                    st.rerun()
+        else:
+            st.markdown(
+                '<div style="font-size:0.8rem;color:#9ca3af;font-style:italic;'
+                'text-align:center;padding:16px 0 8px 0;">Your farm is empty.<br>'
+                'Add your first crop below.</div>',
+                unsafe_allow_html=True,
+            )
+
+        # Add crop form
+        with st.expander("＋ Add a Crop", expanded=df.empty):
+            COMMON_CROPS = [
+                "Alfalfa", "Barley", "Canola", "Cotton", "Corn", "Hay",
+                "Oats", "Rice", "Sorghum", "Soybeans", "Sunflowers", "Wheat",
+            ]
+            if "custom_crops" not in st.session_state:
+                st.session_state.custom_crops = []
+            if "_next_crop" in st.session_state:
+                st.session_state["crop_selectbox"] = st.session_state.pop("_next_crop")
+            if "_next_season" in st.session_state:
+                st.session_state["season_selectbox"] = st.session_state.pop("_next_season")
+
+            all_crops = COMMON_CROPS + st.session_state.custom_crops + ["Add new crop…"]
+            col_a, col_c, col_yr = st.columns([3, 3, 1])
+            crop_sel = col_a.selectbox("Crop", options=all_crops, key="crop_selectbox")
+            if crop_sel == "Add new crop…":
+                new_crop_text = col_a.text_input("New crop name", placeholder="e.g. Millet", key="new_crop_text")
+                if col_a.button("Add to list", key="add_crop_btn"):
+                    nc = new_crop_text.strip().title()
+                    if nc and nc not in COMMON_CROPS and nc not in st.session_state.custom_crops:
+                        st.session_state.custom_crops.append(nc)
+                    if nc:
+                        st.session_state["_next_crop"] = nc
+                        st.rerun()
+
+            season_options = st.session_state.seasons + ["Create new…"]
+            season_sel = col_c.selectbox("Season", options=season_options, key="season_selectbox")
+            if season_sel == "Create new…":
+                new_season_text = col_c.text_input("New season name", placeholder="e.g. Summer", key="new_season_text")
+                if col_c.button("Add season", key="add_season_btn"):
+                    ns = new_season_text.strip().title()
+                    if ns and ns not in st.session_state.seasons:
+                        st.session_state.seasons.append(ns)
+                    if ns:
+                        st.session_state["_next_season"] = ns
+                        st.rerun()
+
+            year_sel = col_yr.number_input("Year", min_value=2000, max_value=2100, value=2025, step=1, key="year_input")
+
+            with st.form("add_crop_form", clear_on_submit=True):
+                col_b, col_d = st.columns([5, 1])
+                acres_input = col_b.text_input("Acres", placeholder="e.g. 320")
+                col_d.markdown("<br>", unsafe_allow_html=True)
+                submitted = col_d.form_submit_button("Add", width='stretch')
+                if submitted:
+                    crop_val   = st.session_state.get("crop_selectbox", "")
+                    season_val = st.session_state.get("season_selectbox", "")
+                    year_val   = st.session_state.get("year_input", 2025)
+                    if not crop_val or crop_val == "Add new crop…":
+                        st.warning("Please select (or add) a crop first.")
+                        st.stop()
+                    if not season_val or season_val == "Create new…":
+                        st.warning("Please select (or create) a season first.")
+                        st.stop()
+                    try:
+                        acres_val = float(acres_input.strip().replace(",", ""))
+                        if acres_val <= 0:
+                            raise ValueError
+                    except ValueError:
+                        st.warning("Please enter a valid number of acres.")
+                        st.stop()
+                    add_crop(email, crop_val, acres_val, season_val, int(year_val))
+                    st.success(f"Added {crop_val} — {season_val} {int(year_val)} ({acres_val:,.0f} acres).")
+                    st.session_state["_pie_select_all_saved"] = st.session_state.get("pie_select_all", True)
+                    st.session_state["_pie_filter_saved"] = st.session_state.get("pie_season_filter", None)
+                    st.rerun()
+
+        # Signal pill
+        _sig_colors = {
+            "BUY_NOW": "#ef4444", "CONSIDER_BUYING": "#f59e0b",
+            "WAIT": "#22c55e", "NEUTRAL": "#6b7280",
+        }
+        _dot_color = _sig_colors.get(signal_label, "#6b7280")
+        _rationale = sig.get("rationale", "Run pipeline for signal.")
+        _rationale_short = _rationale[:70] + ("…" if len(_rationale) > 70 else "")
+        st.markdown(f"""
+        <div style="background:#fff;border:1.5px solid #d1fae5;border-radius:8px;
+                    padding:8px 12px;display:flex;align-items:flex-start;gap:8px;margin-top:8px;">
+          <div style="width:9px;height:9px;border-radius:50%;background:{_dot_color};
+                      flex-shrink:0;margin-top:3px;"></div>
+          <div style="font-size:0.68rem;color:#14532d;line-height:1.5;">
+            <strong>{signal_label}</strong> — {_rationale_short}<br>
+            <span style="color:#4b7c59;font-size:0.62rem;">
+              See "Fertilizer Costs &amp; Risk Assessment" tab for full analysis.</span>
+          </div>
+        </div>""", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════
 # TAB 2 — FERTILIZER COSTS & RISK ASSESSMENT
