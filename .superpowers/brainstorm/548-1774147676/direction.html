@@ -1,0 +1,129 @@
+<h2>Home Page Direction — Which vibe fits AgriSignal?</h2>
+<p class="subtitle">These are three distinct design directions for the farmer dashboard home tab. Pick the one that feels right — or tell me what you like from each.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f2318; padding:20px; font-family:system-ui;">
+      <!-- Direction A mockup: Command Center -->
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <span style="font-size:1.5rem;">🌾</span>
+        <span style="color:#4ade80; font-weight:700; font-size:1.1rem;">AgriSignal</span>
+        <span style="margin-left:auto; background:#16a34a22; border:1px solid #16a34a; color:#4ade80; font-size:0.7rem; padding:2px 8px; border-radius:20px;">● LIVE</span>
+      </div>
+      <div style="background:#16a34a22; border:1px solid #16a34a55; border-radius:8px; padding:12px; margin-bottom:10px;">
+        <div style="color:#4ade80; font-size:0.65rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Market Signal</div>
+        <div style="color:#fff; font-size:1.1rem; font-weight:700;">⚫ NEUTRAL — Urea $352/mt</div>
+        <div style="color:#9ca3af; font-size:0.7rem; margin-top:2px;">60-day forecast flat. No rush to buy.</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:10px;">
+        <div style="background:#1a2e1a; border-radius:6px; padding:8px; text-align:center;">
+          <div style="color:#9ca3af; font-size:0.6rem;">ACRES</div>
+          <div style="color:#fff; font-size:1rem; font-weight:700;">1,240</div>
+        </div>
+        <div style="background:#1a2e1a; border-radius:6px; padding:8px; text-align:center;">
+          <div style="color:#9ca3af; font-size:0.6rem;">CROPS</div>
+          <div style="color:#fff; font-size:1rem; font-weight:700;">3</div>
+        </div>
+        <div style="background:#1a2e1a; border-radius:6px; padding:8px; text-align:center;">
+          <div style="color:#9ca3af; font-size:0.6rem;">FERT. COST</div>
+          <div style="color:#fbbf24; font-size:1rem; font-weight:700;">$48K</div>
+        </div>
+      </div>
+      <div style="background:#1a2e1a; border-radius:6px; padding:8px;">
+        <div style="color:#9ca3af; font-size:0.6rem; margin-bottom:4px;">CROPS THIS SEASON</div>
+        <div style="display:flex; gap:6px;">
+          <span style="background:#15803d; color:#fff; font-size:0.65rem; padding:2px 8px; border-radius:20px;">Corn · 800ac</span>
+          <span style="background:#1e40af; color:#fff; font-size:0.65rem; padding:2px 8px; border-radius:20px;">Wheat · 340ac</span>
+          <span style="background:#7c3aed; color:#fff; font-size:0.65rem; padding:2px 8px; border-radius:20px;">Soy · 100ac</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Command Center (Dark)</h3>
+      <p>Dense, data-forward. Dark green palette, live signal badge, tight grid of stats. Feels like a trading terminal built for farmers. Professional, serious, every number visible at a glance.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f0fdf4; padding:20px; font-family:system-ui;">
+      <!-- Direction B mockup: Clean Dashboard -->
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <div>
+          <div style="font-size:1rem; font-weight:700; color:#14532d;">Good morning, Damien 👋</div>
+          <div style="font-size:0.7rem; color:#6b7280;">Spring Season · 3 crops tracked</div>
+        </div>
+        <div style="background:#fef3c7; border:1px solid #f59e0b; border-radius:8px; padding:6px 12px; font-size:0.7rem; color:#92400e; font-weight:600;">⚫ NEUTRAL</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+        <div style="background:#fff; border:1px solid #d1fae5; border-radius:10px; padding:10px;">
+          <div style="color:#6b7280; font-size:0.65rem; margin-bottom:2px;">Total Acres</div>
+          <div style="color:#14532d; font-size:1.3rem; font-weight:700;">1,240</div>
+          <div style="color:#22c55e; font-size:0.65rem;">↑ 200 from last season</div>
+        </div>
+        <div style="background:#fff; border:1px solid #d1fae5; border-radius:10px; padding:10px;">
+          <div style="color:#6b7280; font-size:0.65rem; margin-bottom:2px;">Fertilizer Cost</div>
+          <div style="color:#14532d; font-size:1.3rem; font-weight:700;">$48,200</div>
+          <div style="color:#f59e0b; font-size:0.65rem;">≈ $38.87/acre avg</div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #d1fae5; border-radius:10px; padding:10px; margin-bottom:8px;">
+        <div style="color:#6b7280; font-size:0.65rem; margin-bottom:6px;">UREA PRICE — 90 DAY TREND</div>
+        <div style="height:30px; background:linear-gradient(90deg, #bbf7d0, #86efac, #4ade80, #22c55e, #fbbf24, #f59e0b); border-radius:4px; opacity:0.7;"></div>
+        <div style="display:flex; justify-content:space-between; margin-top:2px;">
+          <span style="font-size:0.6rem; color:#9ca3af;">Jan</span>
+          <span style="font-size:0.6rem; color:#9ca3af;">Now $352</span>
+          <span style="font-size:0.6rem; color:#9ca3af;">+90d</span>
+        </div>
+      </div>
+      <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:8px; font-size:0.7rem; color:#78350f;">
+        💡 <strong>Tip:</strong> Natural gas up 12% last month. Watch for fertilizer cost increases in 6–8 weeks.
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Clean Dashboard (Light)</h3>
+      <p>Warm, welcoming, modern SaaS feel. Personalized greeting, season context, trend sparkline, actionable insight card at bottom. Familiar to anyone who uses Notion or Linear. Approachable for non-technical farmers.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="C" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#fff; padding:20px; font-family:system-ui; border-bottom:1px solid #e5e7eb;">
+      <!-- Direction C mockup: Story-first -->
+      <div style="text-align:center; padding:10px 0 14px;">
+        <div style="font-size:1.2rem; font-weight:800; color:#111; margin-bottom:4px;">Your Farm at a Glance</div>
+        <div style="font-size:0.7rem; color:#6b7280;">Spring 2026 · Last updated 2 min ago</div>
+      </div>
+      <!-- Big hero stat -->
+      <div style="background:linear-gradient(135deg, #14532d, #16a34a); border-radius:12px; padding:16px; text-align:center; color:#fff; margin-bottom:10px;">
+        <div style="font-size:0.7rem; opacity:0.8; margin-bottom:4px;">ESTIMATED FERTILIZER SPEND THIS SEASON</div>
+        <div style="font-size:2rem; font-weight:800;">$48,200</div>
+        <div style="font-size:0.7rem; opacity:0.8; margin-top:4px;">across 1,240 acres · 3 crops</div>
+      </div>
+      <!-- Two story cards -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+        <div style="border:2px solid #d1fae5; border-radius:10px; padding:10px;">
+          <div style="font-size:1.3rem; margin-bottom:4px;">🌽</div>
+          <div style="font-size:0.75rem; font-weight:700; color:#14532d;">Corn · 800 acres</div>
+          <div style="font-size:0.65rem; color:#6b7280;">~120,000 lbs N needed</div>
+          <div style="font-size:0.65rem; color:#6b7280; margin-top:2px;">Est. $31,400</div>
+        </div>
+        <div style="border:2px solid #dbeafe; border-radius:10px; padding:10px;">
+          <div style="font-size:1.3rem; margin-bottom:4px;">🌾</div>
+          <div style="font-size:0.75rem; font-weight:700; color:#1e40af;">Wheat · 340 acres</div>
+          <div style="font-size:0.65rem; color:#6b7280;">~30,600 lbs N needed</div>
+          <div style="font-size:0.65rem; color:#6b7280; margin-top:2px;">Est. $12,100</div>
+        </div>
+      </div>
+      <div style="background:#f0fdf4; border-radius:8px; padding:8px; font-size:0.7rem; color:#14532d; text-align:center;">
+        ⚫ Market signal: <strong>NEUTRAL</strong> · No urgent action needed
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Story-First (Bold Hero)</h3>
+      <p>Big, readable hero number front and center. Per-crop breakdown cards with emojis, nitrogen, and cost. Signal is a quiet footer. Designed for someone who checks their phone in the field — scannable in 3 seconds.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Click to select your preferred direction (or tell me in the terminal what you like from each). These are rough sketches — the real implementation will be much more polished.</p>

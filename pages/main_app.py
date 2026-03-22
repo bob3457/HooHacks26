@@ -19,7 +19,6 @@ N_INTENSITY_LBS_PER_ACRE = {
 }
 UREA_N_CONTENT = 0.46   # urea is 46% nitrogen by weight
 LBS_PER_MT     = 2204.6 # pounds per metric ton
-import json # Make sure to import json at the top of your file!
 
 # USDA 2023 planted acres by state (thousands of acres)
 # (lat, lng, corn_k, wheat_k, soy_k)
@@ -56,8 +55,6 @@ _STATE_AG = {
     "California":     (37.00,-119.50,   200,   700,   100),
     "Delaware":       (39.00, -75.50,   200,   100,   200),
 }
-import base64
-from PIL import Image
 
 # ── Auth guard ───────────────────────────────────────────────────────────────
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -70,25 +67,20 @@ CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "dat
 
 
 def load_cache():
-    """Safely loads the generated ML cache file."""
+    """Safely loads the generated ML cache file. Returns None if unavailable."""
     try:
         with open(CACHE_PATH, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+        # Validate required top-level keys are present
+        required = {"signal", "monte_carlo", "forecast", "model_metadata"}
+        if not required.issubset(data.keys()):
+            print(f"🚨 Warning: cache.json is missing keys: {required - data.keys()}")
+            return None
+        return data
     except Exception as e:
         print(f"🚨 Warning: Could not load cache.json: {e}")
-        # Return a fallback dictionary if the file hasn't been generated yet
-        return {
-            "forecast": {
-                "labels": ["Apr 2026", "May 2026", "Jun 2026"],
-                "mean": [520, 535, 548]
-            },
-            "signal": {
-                "recommendation": "System Offline",
-                "urgency": "Unknown",
-                "rationale": "Please run backend/run_pipeline.py",
-                "key_driver": "N/A"
-            }
-        }    
+        return None
+
 # ── Database ─────────────────────────────────────────────────────────────────
 def init_farm_db():
     conn = sqlite3.connect(DB_PATH)
@@ -237,14 +229,17 @@ def get_fertilizer_totals(crops_df: pd.DataFrame) -> dict:
     Returns a dict with keys:
         fertilizer_used_lbs (float)  |  fertilizer_cost_usd (float)
     """
-    # Dummy rates per acre
-    rates = {"Corn": (150, 60), "Soybeans": (100, 50), "Wheat": (100, 40), "Cotton": (120, 60)}
-    default = (110, 50)
+    # Use N_INTENSITY_LBS_PER_ACRE constant + current urea price from cache
+    _cache = load_cache()
+    current_price_per_mt = (_cache or {}).get("signal", {}).get("currentPrice", 400)
+    # Convert $/mt → $/lb of urea → $/lb of N (urea is 46% N)
+    cost_per_lb_n = (current_price_per_mt / LBS_PER_MT) / UREA_N_CONTENT
+    default_n_lbs = 100  # lbs N/acre for unknown crops
     used, cost = 0.0, 0.0
     for _, row in crops_df.iterrows():
-        lbs_per_acre, cost_per_acre = rates.get(row["crop_name"], default)
-        used += lbs_per_acre * row["acres"]
-        cost += cost_per_acre * row["acres"]
+        n_lbs_per_acre = N_INTENSITY_LBS_PER_ACRE.get(row["crop_name"], default_n_lbs)
+        used += n_lbs_per_acre * row["acres"]
+        cost += n_lbs_per_acre * row["acres"] * cost_per_lb_n
     return {"fertilizer_used_lbs": used, "fertilizer_cost_usd": cost}
 
 
@@ -303,14 +298,16 @@ def build_state_df(cache: dict) -> pd.DataFrame:
       color           — RGBA list for PyDeck heat gradient
       tooltip         — HTML tooltip string
     """
-    sig           = cache["signal"]
-    current_price = sig["currentPrice"]
-    forecast_t2   = sig["forecast_t2"]
+    sig           = cache.get("signal", {})
+    current_price = sig.get("currentPrice", 0) or 1  # guard against zero division
+    forecast_t2   = sig.get("forecast_t2", current_price)
     price_chg_pct = (forecast_t2 - current_price) / current_price * 100
 
     rows = []
     for state, (lat, lng, corn_k, wheat_k, soy_k) in _STATE_AG.items():
-        n_lbs     = corn_k * 1000 * 150 + wheat_k * 1000 * 90 + soy_k * 1000 * 60
+        n_lbs     = (corn_k  * 1000 * N_INTENSITY_LBS_PER_ACRE["Corn"]
+                     + wheat_k * 1000 * N_INTENSITY_LBS_PER_ACRE["Wheat"]
+                     + soy_k   * 1000 * N_INTENSITY_LBS_PER_ACRE["Soybeans"])
         urea_mt   = n_lbs / (UREA_N_CONTENT * LBS_PER_MT)
         cur_cost  = urea_mt * current_price / 1e6
         fc_cost   = urea_mt * forecast_t2   / 1e6
@@ -487,8 +484,9 @@ st.markdown(f"""
 
 init_farm_db()
 email = st.session_state.user_email
-df    = get_farmer_crops(email)
-cache = load_cache()
+with st.spinner("Loading your farm data..."):
+    df    = get_farmer_crops(email)
+    cache = load_cache()
 
 # ── Season session state ──────────────────────────────────────────────────────
 if "seasons" not in st.session_state:
@@ -710,7 +708,7 @@ with tab_fertilizer:
             "WAIT":            "#22c55e",
             "NEUTRAL":         "#6b7280",
         }
-        color = SIGNAL_COLORS.get(sig["signal"], "#6b7280")
+        color = SIGNAL_COLORS.get(sig.get("signal", "NEUTRAL"), "#6b7280")
 
         # ── SECTION 1: BUY SIGNAL ─────────────────────────────────────────────
         st.subheader("📡 Buy Signal")
@@ -733,34 +731,39 @@ This model exploits that lag to give you advance warning.
             """)
 
         m1, m2, m3, m4 = st.columns(4)
-        pct_chg = (sig["forecast_t2"] - sig["currentPrice"]) / sig["currentPrice"] * 100
+        cur_price = sig.get("currentPrice", 0) or 1
+        fc_t2     = sig.get("forecast_t2", cur_price)
+        pct_chg   = (fc_t2 - cur_price) / cur_price * 100
         with m1:
-            st.metric("Current Urea Price", f"${sig['currentPrice']:.0f}/mt")
+            st.metric("Current Urea Price", f"${cur_price:.0f}/mt")
         with m2:
-            st.metric("60-Day Forecast (t2)", f"${sig['forecast_t2']:.0f}/mt", delta=f"{pct_chg:+.1f}%")
+            st.metric("60-Day Forecast (t2)", f"${fc_t2:.0f}/mt", delta=f"{pct_chg:+.1f}%")
         with m3:
-            st.metric("Prob. Rising (60d)", f"{sig['prob_rising']*100:.0f}%")
+            prob_r = sig.get("prob_rising", 0)
+            st.metric("Prob. Rising (60d)", f"{prob_r*100:.0f}%")
         with m4:
+            ng_cur = sig.get("ng_current", 0)
+            ng_chg = sig.get("ng_change_30d", 0)
             st.metric(
-                "Nat Gas Spot", f"${sig['ng_current']:.2f}/MMBtu",
-                delta=f"{sig['ng_change_30d']*100:+.1f}% (30d)"
+                "Nat Gas Spot", f"${ng_cur:.2f}/MMBtu",
+                delta=f"{ng_chg*100:+.1f}% (30d)"
             )
 
         st.markdown(f"""
         <div style="background:{color}22; border-left:4px solid {color}; padding:16px;
                     border-radius:6px; margin:12px 0 4px 0;">
             <span style="font-size:1.35rem; font-weight:bold; color:{color};">
-                {sig['recommendation']}
+                {sig.get('recommendation', 'N/A')}
             </span>
             &nbsp;&nbsp;
             <span style="color:#666; font-size:0.88rem;">
-                Confidence: {sig['confidence']*100:.0f}%
-                &nbsp;|&nbsp; {sig['key_driver']}
-                &nbsp;|&nbsp; Best month: {sig['bestMonth']} (${sig['bestPrice']:.0f}/mt)
+                Confidence: {sig.get('confidence', 0)*100:.0f}%
+                &nbsp;|&nbsp; {sig.get('key_driver', 'N/A')}
+                &nbsp;|&nbsp; Best month: {sig.get('bestMonth', 'N/A')} (${sig.get('bestPrice', 0):.0f}/mt)
             </span>
             <br>
             <span style="color:#444; font-size:0.95rem; margin-top:8px; display:block;">
-                {sig['rationale']}
+                {sig.get('rationale', '')}
             </span>
         </div>
         """, unsafe_allow_html=True)
@@ -1251,9 +1254,9 @@ with tab_map:
     if cache is None:
         st.warning("No forecast data found. Run `python backend/run_pipeline.py` first.")
     else:
-        sig_map  = cache["signal"]
-        cur_p    = sig_map["currentPrice"]
-        fc_p     = sig_map["forecast_t2"]
+        sig_map  = cache.get("signal", {})
+        cur_p    = sig_map.get("currentPrice", 0) or 1
+        fc_p     = sig_map.get("forecast_t2", cur_p)
         chg_pct  = (fc_p - cur_p) / cur_p * 100
         chg_sign = "▲" if chg_pct >= 0 else "▼"
 
@@ -1299,7 +1302,7 @@ particular price move.
         hm1, hm2, hm3 = st.columns(3)
         hm1.metric("Current Urea", f"${cur_p:.0f}/mt")
         hm2.metric("60-Day Forecast", f"${fc_p:.0f}/mt", delta=f"{chg_pct:+.1f}%")
-        hm3.metric("Signal", sig_map["signal"])
+        hm3.metric("Signal", sig_map.get("signal", "N/A"))
 
         # ── Build state dataset ────────────────────────────────────────────
         state_df = build_state_df(cache)

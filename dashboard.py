@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -9,6 +10,9 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from scipy.stats import norm as _norm
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Gas Forecast Pro", page_icon="🌾", layout="wide")
@@ -122,8 +126,10 @@ df    = load_portfolio_data()
 
 # --- EMAIL ALERT FUNCTION ---
 def send_risk_alert(recipient_email, borrower_data, probability, action):
-    SENDER_EMAIL = "your_burner_email@gmail.com"
-    APP_PASSWORD  = "your_16_character_app_password"
+    SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
+    APP_PASSWORD  = os.getenv("SENDER_PASSWORD", "")
+    if not SENDER_EMAIL or not APP_PASSWORD:
+        return False
 
     msg = MIMEMultipart()
     msg['From']    = SENDER_EMAIL
