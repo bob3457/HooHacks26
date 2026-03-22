@@ -482,6 +482,79 @@ st.markdown("""
 tab_overview, tab_fertilizer, tab_map = st.tabs(["Overview", "Fertilizer Costs & Risk Assessment", "🌍 Regional Price Map"])
 
 
+def _build_sparkline_svg(values: list, width: int = 200, height: int = 48) -> str:
+    """Returns an inline SVG polyline from a list of floats. Empty string if insufficient data."""
+    if not values or len(values) < 2:
+        return ""
+    mn, mx = min(values), max(values)
+    rng = mx - mn or 1
+    step = width / (len(values) - 1)
+    pts = " ".join(
+        f"{i * step:.1f},{height - ((v - mn) / rng) * (height - 6) - 3:.1f}"
+        for i, v in enumerate(values)
+    )
+    fill_pts = f"0,{height} " + pts + f" {width},{height}"
+    last_x = (len(values) - 1) * step
+    last_y = height - ((values[-1] - mn) / rng) * (height - 6) - 3
+    return (
+        f'<svg viewBox="0 0 {width} {height}" fill="none" '
+        f'xmlns="http://www.w3.org/2000/svg" style="width:100%;height:{height}px;">'
+        f'<polygon points="{fill_pts}" fill="rgba(134,239,172,0.15)"/>'
+        f'<polyline points="{pts}" stroke="#86efac" stroke-width="2" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle cx="{last_x:.1f}" cy="{last_y:.1f}" r="3" fill="#4ade80"/>'
+        f'</svg>'
+    )
+
+
+def _build_cost_bars_html(df: pd.DataFrame, fert_totals: dict) -> str:
+    """Returns HTML string of per-crop horizontal cost bars for the green financial panel."""
+    if df.empty:
+        return '<div style="color:#86efac;font-size:0.75rem;opacity:0.7;">Add crops to see breakdown.</div>'
+
+    _cache = load_cache()
+    cur_p = (_cache or {}).get("signal", {}).get("currentPrice", 400) or 400
+    cost_per_lb_n = (cur_p / LBS_PER_MT) / UREA_N_CONTENT
+
+    from collections import defaultdict
+    agg: dict = defaultdict(float)
+    for _, row in df.iterrows():
+        n_lbs = N_INTENSITY_LBS_PER_ACRE.get(row["crop_name"], 100) * row["acres"]
+        agg[row["crop_name"]] += n_lbs * cost_per_lb_n
+
+    total = sum(agg.values()) or 1
+    bar_colors = ["#4ade80", "#34d399", "#22c55e", "#16a34a", "#15803d"]
+    crop_emojis = {"Corn": "🌽", "Wheat": "🌾", "Soybeans": "🫘",
+                   "Cotton": "🪴", "Sorghum": "🌿", "Hay": "🌱"}
+    html = ""
+    for i, (crop, cost) in enumerate(sorted(agg.items(), key=lambda x: -x[1])):
+        pct = cost / total * 100
+        color = bar_colors[min(i, len(bar_colors) - 1)]
+        emoji = crop_emojis.get(crop, "🌾")
+        html += (
+            f'<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">'
+            f'<span style="font-size:0.65rem;color:#d1fae5;width:72px;white-space:nowrap;'
+            f'overflow:hidden;text-overflow:ellipsis;">{emoji} {crop}</span>'
+            f'<div style="flex:1;height:5px;background:rgba(255,255,255,0.12);'
+            f'border-radius:3px;overflow:hidden;">'
+            f'<div style="width:{pct:.0f}%;height:100%;background:{color};border-radius:3px;"></div>'
+            f'</div>'
+            f'<span style="font-size:0.62rem;color:#d1fae5;font-weight:700;'
+            f'width:42px;text-align:right;">${cost/1000:.1f}K</span>'
+            f'</div>'
+        )
+
+    total_val = fert_totals.get("fertilizer_cost_usd", 0)
+    html += (
+        f'<div style="display:flex;justify-content:space-between;'
+        f'border-top:1px dashed rgba(255,255,255,0.2);margin-top:5px;padding-top:5px;">'
+        f'<span style="font-size:0.62rem;color:#86efac;">Total</span>'
+        f'<span style="font-size:0.68rem;font-weight:700;color:#fff;">${total_val:,.0f}</span>'
+        f'</div>'
+    )
+    return html
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # TAB 1 — OVERVIEW
 # ════════════════════════════════════════════════════════════════════════════
