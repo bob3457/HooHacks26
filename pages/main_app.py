@@ -28,6 +28,27 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "users.
 # Add this new line:
 CACHE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "processed", "cache.json")
 
+
+def load_cache():
+    """Safely loads the generated ML cache file."""
+    try:
+        with open(CACHE_PATH, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"🚨 Warning: Could not load cache.json: {e}")
+        # Return a fallback dictionary if the file hasn't been generated yet
+        return {
+            "forecast": {
+                "labels": ["Apr 2026", "May 2026", "Jun 2026"],
+                "mean": [520, 535, 548]
+            },
+            "signal": {
+                "recommendation": "System Offline",
+                "urgency": "Unknown",
+                "rationale": "Please run backend/run_pipeline.py",
+                "key_driver": "N/A"
+            }
+        }    
 # ── Database ─────────────────────────────────────────────────────────────────
 def init_farm_db():
     conn = sqlite3.connect(DB_PATH)
