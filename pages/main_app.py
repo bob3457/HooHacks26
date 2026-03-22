@@ -363,6 +363,9 @@ st.markdown(f"""
         background: white;
         padding-bottom: 0.3rem;
         border-bottom: 1px solid #e8f4e8;
+        width: 100vw;
+        left: 0;
+        margin-left: -1rem;
     }}
 
     /* Keep "Logged in as …" on one line */
@@ -414,6 +417,10 @@ st.markdown(f"""
         padding: 18px 28px;
         margin-bottom: 0.5rem;
         border-radius: 0;
+        margin-left: -28px;
+        margin-right: -28px;
+        width: calc(100% + 56px);
+    }}
     }}
     .agri-banner h1 {{
         color: #fff;
