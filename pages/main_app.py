@@ -17,12 +17,28 @@ N_INTENSITY_LBS_PER_ACRE = {
 }
 UREA_N_CONTENT = 0.46   # urea is 46% nitrogen by weight
 LBS_PER_MT     = 2204.6 # pounds per metric ton
+import base64
+from PIL import Image
 
 # ── Auth guard ───────────────────────────────────────────────────────────────
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
     st.switch_page("login.py")
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "users.db")
+IMAGES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "images")
+
+
+# ── Image helper ──────────────────────────────────────────────────────────────
+def get_image_base64(filename):
+    """Convert image to base64 data URL"""
+    img_path = os.path.join(IMAGES_DIR, filename)
+    if os.path.exists(img_path):
+        with open(img_path, "rb") as img_file:
+            data = base64.b64encode(img_file.read()).decode()
+            ext = filename.split(".")[-1].lower()
+            mime_type = "image/jpeg" if ext == "jpg" else f"image/{ext}"
+            return f"data:{mime_type};base64,{data}"
+    return None
 
 
 # ── Database ─────────────────────────────────────────────────────────────────
@@ -221,98 +237,132 @@ def load_cache():
 # ── Page setup ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Gas Forecast — Dashboard", page_icon="🌾", layout="wide", initial_sidebar_state="collapsed")
 
-st.markdown("""
+# Get base64 encoded images
+crop_circle_bg = get_image_base64("crop_circle.jpg")
+banner_bg_url = crop_circle_bg if crop_circle_bg else "linear-gradient(#f0f7f0, #e8f5e9)"
+
+st.markdown(f"""
 <style>
-    [data-testid='stSidebarNav'] { display: none; }
-    [data-testid='collapsedControl'] { display: none; }
-    section[data-testid='stSidebar'] { display: none; }
-    header[data-testid='stHeader'] { display: none; }
-    body, .stApp { background-color: #ffffff; }
-    h1, h2, h3 { color: #1a5c2a; font-family: system-ui, sans-serif; }
+    [data-testid='stSidebarNav'] {{ display: none; }}
+    [data-testid='collapsedControl'] {{ display: none; }}
+    section[data-testid='stSidebar'] {{ display: none; }}
+    header[data-testid='stHeader'] {{ display: none; }}
+    body, .stApp {{ background-color: #ffffff; }}
+    h1, h2, h3 {{ color: #1a5c2a; font-family: system-ui, sans-serif; }}
 
     /* shrink top padding so content starts higher */
-    .block-container { padding-top: 0.5rem !important; }
+    .block-container {{ padding-top: 0.5rem !important; }}
 
     /* Sticky header row — first direct child of the top-level vertical block */
-    section[data-testid="stMain"] > div > div[data-testid="stVerticalBlock"] > div:first-child {
+    section[data-testid="stMain"] > div > div[data-testid="stVerticalBlock"] > div:first-child {{
         position: sticky;
         top: 0;
         z-index: 999;
         background: white;
         padding-bottom: 0.3rem;
         border-bottom: 1px solid #e8f4e8;
-    }
+    }}
 
     /* Keep "Logged in as …" on one line */
-    .user-email-bar {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .user-email-bar {{
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
         text-align: right;
-        padding-top: 0.42rem;
         font-size: 0.95rem;
         color: #444;
-    }
+    }}
+    
+    .user-email-bar img {{
+        width: 24px;
+        height: 24px;
+    }}
 
     /* Prevent button labels from wrapping */
-    .stButton button, button[data-testid^="stBaseButton"] {
+    .stButton button, button[data-testid^="stBaseButton"] {{
         white-space: nowrap !important;
-    }
+    }}
 
-    .banner {
-        background-color: #f0f7f0;
-        border: 1px solid #d4edda;
-        padding: 2.8rem 2rem;
-        margin-bottom: 1.5rem;
+    .banner {{
+        background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('{banner_bg_url}');
+        background-size: cover;
+        background-position: center;
+        padding: 3rem 2rem;
+        margin-bottom: 2rem;
         text-align: center;
-    }
+        border-radius: 8px;
+    }}
+    
+    .banner h1 {{
+        color: #ffffff !important;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    }}
+    
+    .banner p {{
+        color: #f0f0f0;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    }}
 
-    .metric-card {
-        background: #f9fbf9;
-        border: 1px solid #e0e0e0;
-        border-radius: 0px;
-        padding: 2rem 1.5rem;
+    .metric-card {{
+        background: #ffffff;
+        border: 2px solid #c8e6c9;
+        border-radius: 8px;
+        padding: 1.8rem 1.5rem;
         text-align: center;
-    }
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }}
+    
+    .metric-card:hover {{
+        transform: translateY(-4px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }}
+    
+    .metric-icon {{
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 0.8rem;
+        display: block;
+    }}
 
-    .metric-label {
+    .metric-label {{
         color: #666;
         font-size: 1rem;
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-    }
+    }}
 
-    .metric-value {
+    .metric-value {{
         color: #1a5c2a;
         font-size: 2.4rem;
         font-weight: 600;
         margin-top: 0.5rem;
-    }
+    }}
 
-    .advice-card {
+    .advice-card {{
         background: #f9fbf9;
         border-left: 4px solid #1a5c2a;
         border-radius: 0px;
         padding: 2rem 1.8rem;
         margin-top: 1.5rem;
-    }
+    }}
 
-    .risk-medium { color: #e67e22; font-weight: 600; }
-    .risk-low    { color: #27ae60; font-weight: 600; }
-    .risk-high   { color: #e74c3c; font-weight: 600; }
+    .risk-medium {{ color: #e67e22; font-weight: 600; }}
+    .risk-low    {{ color: #27ae60; font-weight: 600; }}
+    .risk-high   {{ color: #e74c3c; font-weight: 600; }}
 
-    .empty-state {
+    .empty-state {{
         text-align: center;
         padding: 4rem 2rem;
         color: #999;
         font-size: 1.1rem;
         background: #f9fbf9;
         border: 1px solid #e0e0e0;
-    }
+    }}
 
     /* make tab labels bigger */
-    button[data-baseweb="tab"] { font-size: 1.05rem !important; }
+    button[data-baseweb="tab"] {{ font-size: 1.05rem !important; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -328,7 +378,9 @@ if "seasons" not in st.session_state:
 # ── Top-right user bar ────────────────────────────────────────────────────────
 _, col_user, col_signout = st.columns([5, 3, 1])
 with col_user:
-    st.markdown(f'<div class="user-email-bar">Logged in as <strong>{email}</strong></div>', unsafe_allow_html=True)
+    account_icon_b64 = get_image_base64("account.png")
+    icon_html = f'<img src="{account_icon_b64}" alt="account" style="width:20px; height:20px; margin-right:6px;"/>' if account_icon_b64 else ""
+    st.markdown(f'<div class="user-email-bar">{icon_html}<span>Logged in as <strong>{email}</strong></span></div>', unsafe_allow_html=True)
 with col_signout:
     if st.button("Sign Out", use_container_width=True):
         st.session_state.logged_in = False
@@ -339,7 +391,7 @@ with col_signout:
 st.markdown("""
 <div class="banner">
     <h1 style="margin:0 0 0.6rem 0; font-size:3.2rem;">🌾 Gas Forecast</h1>
-    <p style="margin:0; color:#555; font-size:1.2rem;">Fertilizer intelligence for farmers</p>
+    <p style="margin:0; font-size:1.2rem;">Fertilizer intelligence for farmers</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -419,19 +471,22 @@ with tab_overview:
         total_cost       = fert["fertilizer_cost_usd"]
 
         c1, c2, c3, c4 = st.columns(4)
-        for col, label, value in [
+        metrics = [
             (c1, "Total Acres",     f"{total_acres:,.0f}"),
             (c2, "Different Crops", str(num_crops)),
             (c3, "Fertilizer Used", f"{total_fertilizer:,.0f} lbs"),
             (c4, "Fertilizer Cost", f"${total_cost:,.0f}"),
-        ]:
-            col.markdown(
-                f'<div class="metric-card">'
-                f'<div class="metric-label">{label}</div>'
-                f'<div class="metric-value">{value}</div>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+        ]
+        
+        for col, label, value in metrics:
+            with col:
+                st.markdown(
+                    f'<div class="metric-card" style="padding-top: 0.8rem;">'
+                    f'<div class="metric-label">{label}</div>'
+                    f'<div class="metric-value">{value}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
         st.markdown("---")
 
