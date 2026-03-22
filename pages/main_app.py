@@ -56,7 +56,7 @@ _STATE_AG = {
 
 # ── Auth guard ───────────────────────────────────────────────────────────────
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
-    st.switch_page("login.py")
+    st.switch_page("pages/login.py")
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "users.db")
 
@@ -457,7 +457,7 @@ with col_signout:
     if st.button("Sign Out", width='stretch'):
         st.session_state.logged_in = False
         st.session_state.user_email = ""
-        st.switch_page("login.py")
+        st.switch_page("pages/login.py")
 
 # ── Banner ───────────────────────────────────────────────────────────────────
 st.markdown("""
