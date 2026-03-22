@@ -320,8 +320,6 @@ def build_state_df(cache: dict) -> pd.DataFrame:
 st.set_page_config(page_title="Gas Forecast — Dashboard", page_icon="🌾", layout="wide", initial_sidebar_state="collapsed")
 
 # Get base64 encoded images
-crop_circle_bg = get_image_base64("crop_circle.jpg")
-banner_bg_url = crop_circle_bg if crop_circle_bg else "linear-gradient(#f0f7f0, #e8f5e9)"
 
 st.markdown(f"""
 <style>
@@ -385,41 +383,11 @@ st.markdown(f"""
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
     }}
 
-    .metric-card {{
-        background: #ffffff;
-        border: 2px solid #c8e6c9;
-        border-radius: 8px;
-        padding: 1.8rem 1.5rem;
-        text-align: center;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        transition: transform 0.2s, box-shadow 0.2s;
-    }}
-    
-    .metric-card:hover {{
-        transform: translateY(-4px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    }}
-    
     .metric-icon {{
         width: 48px;
         height: 48px;
         margin: 0 auto 0.8rem;
         display: block;
-    }}
-
-    .metric-label {{
-        color: #666;
-        font-size: 1rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }}
-
-    .metric-value {{
-        color: #1a5c2a;
-        font-size: 2.4rem;
-        font-weight: 600;
-        margin-top: 0.5rem;
     }}
 
     .advice-card {{
@@ -433,15 +401,6 @@ st.markdown(f"""
     .risk-medium {{ color: #e67e22; font-weight: 600; }}
     .risk-low    {{ color: #27ae60; font-weight: 600; }}
     .risk-high   {{ color: #e74c3c; font-weight: 600; }}
-
-    .empty-state {{
-        text-align: center;
-        padding: 4rem 2rem;
-        color: #999;
-        font-size: 1.1rem;
-        background: #f9fbf9;
-        border: 1px solid #e0e0e0;
-    }}
 
     /* make tab labels bigger */
     button[data-baseweb="tab"] {{ font-size: 1.05rem !important; }}
@@ -469,14 +428,6 @@ with col_signout:
         st.session_state.logged_in = False
         st.session_state.user_email = ""
         st.switch_page("login.py")
-
-# ── Banner ───────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="banner">
-    <h1 style="margin:0 0 0.6rem 0; font-size:3.2rem;">🌾 Gas Forecast</h1>
-    <p style="margin:0; font-size:1.2rem;">Fertilizer intelligence for farmers</p>
-</div>
-""", unsafe_allow_html=True)
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
 tab_overview, tab_fertilizer, tab_map = st.tabs(["Overview", "Fertilizer Costs & Risk Assessment", "🌍 Regional Price Map"])
