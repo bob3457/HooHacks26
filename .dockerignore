@@ -1,0 +1,14 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+users.db
+db/
+backend/agrisignal.db
+backend/agrisignal.db-shm
+backend/agrisignal.db-wal
+.vscode/
+docs/

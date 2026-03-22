@@ -1,0 +1,13 @@
+services:
+  agrisignal:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - db_data:/app/db
+    restart: unless-stopped
+
+volumes:
+  db_data:

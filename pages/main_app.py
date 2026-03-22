@@ -13,7 +13,7 @@ import base64
 import time
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(_ROOT, "users.db")
+DB_PATH = os.path.join(_ROOT, "db", "users.db")
 
 # ── Fertilizer constants (nitrogen intensity per crop) ────────────────────────
 N_INTENSITY_LBS_PER_ACRE = {
