@@ -10,6 +10,11 @@ import numpy as np
 from scipy.stats import norm as _norm
 import pydeck as pdk
 import base64
+import time
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(_ROOT, "users.db")
+
 # ── Fertilizer constants (nitrogen intensity per crop) ────────────────────────
 N_INTENSITY_LBS_PER_ACRE = {
     "Corn": 150, "Wheat": 90, "Cotton": 120,
@@ -55,7 +60,22 @@ _STATE_AG = {
 }
 
 # ── Auth guard ───────────────────────────────────────────────────────────────
-if "logged_in" not in st.session_state or not st.session_state.logged_in:
+# On reload session_state is cleared — restore from the ?s= token in the URL
+if not st.session_state.get("logged_in"):
+    _tok = st.query_params.get("s")
+    if _tok:
+        _conn = sqlite3.connect(DB_PATH)
+        _row  = _conn.execute(
+            "SELECT email FROM session_tokens WHERE token = ? AND expires_at > ?",
+            (_tok, int(time.time())),
+        ).fetchone()
+        _conn.close()
+        if _row:
+            st.session_state.logged_in         = True
+            st.session_state.user_email        = _row[0]
+            st.session_state["_session_token"] = _tok
+
+if not st.session_state.get("logged_in"):
     st.switch_page("pages/login.py")
 
 # Keep token in URL so F5 refresh restores the session

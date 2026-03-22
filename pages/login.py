@@ -11,6 +11,7 @@ import time
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(_ROOT, "users.db")
 IMAGES_DIR = os.path.join(_ROOT, "images")
+SESSION_TTL = 60 * 60 * 24 * 7  # 7 days in seconds
 
 
 def get_image_base64(filename):
