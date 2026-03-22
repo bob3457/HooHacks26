@@ -171,19 +171,12 @@ def run_ingestion(start: str = "2018-01", end: str | None = None) -> dict:
       'dap'          — monthly DAP price ($/mt)
       'storage_mmcf' — monthly underground storage working gas (MMcf)
 
-    EIA API is tried first for NG spot and storage so the latest available
-    month is always included.  Falls back to local static files on failure.
-
-    If end is None, the index extends to the latest month present in the data
-    so no observations are left on the table.
+    FORCED TO LOCAL FILES: EIA API fetching is disabled to ensure offline-first 
+    speed and reliability as per user requirement.
     """
-    # Natural gas spot — EIA live, then local CSV
-    ng = _fetch_eia_ng_spot() or load_ng_monthly()
-
-    # Storage — EIA live, then local XLS
-    stor = _fetch_eia_ng_storage() or load_ng_storage()
-
-    # Fertilizer prices — World Bank only (no free live source)
+    # Force local loaders
+    ng = load_ng_monthly()
+    stor = load_ng_storage()
     fert = load_fertilizer_prices()
 
     # Determine end date: use latest month present across all series
