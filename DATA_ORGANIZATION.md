@@ -18,7 +18,7 @@ data/
 │       └── monthly.csv           (343 records)
 │
 ├── sql/                          ← SQLite database (indexed, relational)
-│   └── agrisignal.db            (140 KB - all data indexed for fast queries)
+│   └── gas_forecast.db            (140 KB - all data indexed for fast queries)
 │
 ├── raw/                          ← Raw source files (not migrated)
 │   └── CMO-Historical-Data-Monthly.xlsx   (World Bank fertilizer prices)
@@ -42,7 +42,7 @@ All CSV files have been organized here in the same subfolder structure:
 
 ### **SQL Folder** (`data/sql/`)
 Contains the SQLite database:
-- ✅ `agrisignal.db` (140 KB)
+- ✅ `gas_forecast.db` (140 KB)
   - 5 tables: `subscribers`, `farm_borrowers`, `ng_prices`, `fertilizer_prices`, `ng_storage`
   - 1,347 total records (indexed for fast queries)
   - Replaces individual CSV reads with unified relational queries
@@ -64,12 +64,12 @@ All Python files have been updated to reference the new paths:
 
 | File | Change |
 |------|--------|
-| `backend/db_schema.py` | `backend/agrisignal.db` → `data/sql/agrisignal.db` |
+| `backend/db_schema.py` | `backend/gas_forecast.db` → `data/sql/gas_forecast.db` |
 | `backend/migrate_to_sqlite.py` | CSV paths → `data/csv/` |
-| `email_service/subscribers.py` | DB path → `data/sql/agrisignal.db` |
-| `mailer/subscribers.py` | DB path → `data/sql/agrisignal.db` |
-| `backend/src/ingestion/pipeline.py` | DB path → `data/sql/agrisignal.db`, CSV fallback → `data/csv/` |
-| `dashboard.py` | DB path → `data/sql/agrisignal.db`, CSV fallback → `data/csv/` |
+| `email_service/subscribers.py` | DB path → `data/sql/gas_forecast.db` |
+| `mailer/subscribers.py` | DB path → `data/sql/gas_forecast.db` |
+| `backend/src/ingestion/pipeline.py` | DB path → `data/sql/gas_forecast.db`, CSV fallback → `data/csv/` |
+| `dashboard.py` | DB path → `data/sql/gas_forecast.db`, CSV fallback → `data/csv/` |
 
 ---
 
@@ -100,12 +100,12 @@ All Python files have been updated to reference the new paths:
 from backend.src.ingestion.pipeline import load_ng_monthly
 from email_service.subscribers import add_subscriber
 
-ng_prices = load_ng_monthly()           # Loads from data/sql/agrisignal.db
+ng_prices = load_ng_monthly()           # Loads from data/sql/gas_forecast.db
 subs = add_subscriber("user@ex.com", "corn", 100)  # Stores in database
 ```
 
 ### **Fallback (CSV)**
-Automatically used if `data/sql/agrisignal.db` doesn't exist:
+Automatically used if `data/sql/gas_forecast.db` doesn't exist:
 ```python
 # If database unavailable, automatically falls back to:
 # data/csv/natural-gas-prices/monthly.csv
@@ -119,7 +119,7 @@ Automatically used if `data/sql/agrisignal.db` doesn't exist:
 ### **Backup your data:**
 ```bash
 # Backup the SQLite database (smallest and fastest)
-cp data/sql/agrisignal.db backups/agrisignal_backup.db
+cp data/sql/gas_forecast.db backups/gas_forecast_backup.db
 
 # Backup CSVs (for archival/portability)
 tar -czf data_csv_backup.tar.gz data/csv/
@@ -127,7 +127,7 @@ tar -czf data_csv_backup.tar.gz data/csv/
 
 ### **Explore the database:**
 ```bash
-sqlite3 data/sql/agrisignal.db
+sqlite3 data/sql/gas_forecast.db
 > SELECT * FROM subscribers LIMIT 5;
 > SELECT COUNT(*) FROM farm_borrowers;
 > .tables

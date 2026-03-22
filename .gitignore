@@ -9,9 +9,9 @@
 __pycache__/
 
 # SQLite database (runtime file — never commit)
-backend/agrisignal.db
-backend/agrisignal.db-shm
-backend/agrisignal.db-wal
+backend/gas_forecast.db
+backend/gas_forecast.db-shm
+backend/gas_forecast.db-wal
 
 # Trained ML models and generated cache (large binary files)
 data/models/

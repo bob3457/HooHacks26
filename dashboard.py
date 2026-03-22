@@ -11,7 +11,7 @@ from email.mime.multipart import MIMEMultipart
 from scipy.stats import norm as _norm
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="AgriSignal Pro", page_icon="🌾", layout="wide")
+st.set_page_config(page_title="Gas Forecast Pro", page_icon="🌾", layout="wide")
 
 st.markdown("""
     <style>
@@ -73,7 +73,7 @@ st.markdown("""
 
 st.markdown("""
 <div class="app-header">
-    <h1>🌾 AgriSignal Pro: Risk Mitigation Engine</h1>
+    <h1>🌾 Gas Forecast Pro: Risk Mitigation Engine</h1>
     <p>Automated Farm Loan Portfolio Monitoring &amp; Proactive Hedging</p>
 </div>
 """, unsafe_allow_html=True)
@@ -128,10 +128,10 @@ def send_risk_alert(recipient_email, borrower_data, probability, action):
     msg = MIMEMultipart()
     msg['From']    = SENDER_EMAIL
     msg['To']      = recipient_email
-    msg['Subject'] = "🚨 AgriSignal Alert: High Risk Farm Detected"
+    msg['Subject'] = "🚨 Gas Forecast Alert: High Risk Farm Detected"
 
     body = f"""
-    AgriSignal Risk Mitigation Engine has flagged a portfolio account.
+    Gas Forecast Risk Mitigation Engine has flagged a portfolio account.
 
     Borrower Metrics:
     - Crop Focus: {borrower_data['Crop_Type']}
@@ -148,7 +148,7 @@ def send_risk_alert(recipient_email, borrower_data, probability, action):
 
     Automated Recommendation: {action}
 
-    Log into the AgriSignal portal to review this account immediately.
+    Log into the Gas Forecast portal to review this account immediately.
     """
     msg.attach(MIMEText(body, 'plain'))
 
