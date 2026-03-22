@@ -136,4 +136,4 @@ with open(out_path, "w") as f:
     json.dump(cache, f, indent=2)
 
 print(f"\nCache written -> {out_path}")
-print("=== Done. Restart the Node server to pick up fresh data. ===")
+print("=== Done. Fresh data is live — no server restart needed. ===")
