@@ -416,6 +416,12 @@ st.markdown(f"""
     /* ── Full-height columns ── */
     [data-testid="stHorizontalBlock"] {{ align-items: stretch !important; }}
 
+    /* ── Center Add button text ── */
+    [data-testid="stFormSubmitButton"] button p {{
+        width: 100%;
+        text-align: center !important;
+    }}
+
     /* Color the 3 overview columns via CSS nth-child */
     [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) > div {{
         background: #f0fdf4;
@@ -816,7 +822,7 @@ with tab_overview:
                 st.session_state["season_selectbox"] = st.session_state.pop("_next_season")
 
             all_crops = COMMON_CROPS + st.session_state.custom_crops + ["Add new crop…"]
-            col_a, col_c, col_yr = st.columns([3, 3, 1])
+            col_a, col_c = st.columns([1, 1])
             crop_sel = col_a.selectbox("Crop", options=all_crops, key="crop_selectbox")
             if crop_sel == "Add new crop…":
                 new_crop_text = col_a.text_input("New crop name", placeholder="e.g. Millet", key="new_crop_text")
@@ -840,13 +846,11 @@ with tab_overview:
                         st.session_state["_next_season"] = ns
                         st.rerun()
 
-            year_sel = col_yr.number_input("Year", min_value=2000, max_value=2100, value=2025, step=1, key="year_input")
-
             with st.form("add_crop_form", clear_on_submit=True):
-                col_b, col_d = st.columns([5, 1])
+                col_b, col_yr, col_d = st.columns([3, 3, 3], vertical_alignment="bottom")
                 acres_input = col_b.text_input("Acres", placeholder="e.g. 320")
-                col_d.markdown("<br>", unsafe_allow_html=True)
-                submitted = col_d.form_submit_button("Add", width='stretch')
+                year_sel = col_yr.number_input("Year", min_value=2000, max_value=2100, value=2025, step=1, key="year_input")
+                submitted = col_d.form_submit_button("Add", use_container_width=True)
                 if submitted:
                     crop_val   = st.session_state.get("crop_selectbox", "")
                     season_val = st.session_state.get("season_selectbox", "")
