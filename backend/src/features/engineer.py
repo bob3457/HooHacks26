@@ -113,10 +113,13 @@ def build_features(data: dict) -> pd.DataFrame:
     if not daily_feats.empty:
         df = df.join(daily_feats, how="left")
     else:
-        # Fill with NaN so FEATURE_COLS still exist; model will skip via dropna
-        for col in ["ng_ma30_eom", "ng_ma60_eom", "ng_ma90_eom",
-                    "ng_ma_cross_30_60", "ng_ma_cross_30_90", "ng_daily_vol_1m"]:
-            df[col] = np.nan
+        # Fall back to monthly proxies so training rows aren't dropped
+        df["ng_ma30_eom"]      = df["ng_rolling_mean_3m"]
+        df["ng_ma60_eom"]      = df["ng_rolling_mean_6m"]
+        df["ng_ma90_eom"]      = df["ng_rolling_mean_6m"]
+        df["ng_ma_cross_30_60"] = df["ng_rolling_mean_3m"] / df["ng_rolling_mean_6m"] - 1
+        df["ng_ma_cross_30_90"] = df["ng_rolling_mean_3m"] / df["ng_rolling_mean_6m"] - 1
+        df["ng_daily_vol_1m"]  = df["ng_rolling_std_3m"]
 
     # ── Urea features
     df["urea_lag1"]            = df["urea"].shift(1)
