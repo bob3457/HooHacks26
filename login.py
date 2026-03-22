@@ -88,7 +88,7 @@ init_db()
 
 st.set_page_config(page_title="Gas Forecast", page_icon="🌱", layout="centered", initial_sidebar_state="collapsed")
 
-st.markdown("<style>[data-testid='stSidebarNav'] { display: none; } [data-testid='collapsedControl'] { display: none; } section[data-testid='stSidebar'] { display: none; }</style>", unsafe_allow_html=True)
+st.markdown("<style>[data-testid='stSidebarNav'] { display: none; } [data-testid='collapsedControl'] { display: none; } section[data-testid='stSidebar'] { display: none; } header[data-testid='stHeader'] { display: none; }</style>", unsafe_allow_html=True)
 
 # Get base64 encoded background
 aerial_view_bg = get_image_base64("aerial_view.jpg")
